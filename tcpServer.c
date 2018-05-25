@@ -9,7 +9,17 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#define PORT 4444
+#define MAXLINE 1024 /*max text line length*/
+#define SERV_PORT 3000 /*port*/
+#define LISTENQ 8 /*maximum number of client connections*/
+
+
+int listenSock, connectSock, n;
+pid_t pid;
+char request[MAXLINE];
+struct sockaddr_in serverAddr, clientAddr;
+socklen_t clilen;
+
 
 void sig_chld(int singno){
         pid_t pid;
@@ -21,68 +31,41 @@ void sig_chld(int singno){
 
 int main(){
 
-	int sockfd, ret,n;
-	struct sockaddr_in serverAddr;
+        if((listenSock = socket(AF_INET,SOCK_STREAM,0)) < 0) {
+                printf("Loi tao socket\n");
+                exit(1);
+        }
+        serverAddr.sin_family = AF_INET;
+        serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+        serverAddr.sin_port = htons(SERV_PORT);
 
-	int newSocket;
-	struct sockaddr_in newAddr;
+        int enable = 1;
+        if (setsockopt(listenSock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+                perror("setsockopt(SO_REUSEADDR) failed");
 
-	socklen_t addr_size;
+        if(bind(listenSock,(struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
+                printf("Loi bind\n");
+                exit(2);
+        }
 
-	char buffer[1024];
-	pid_t childpid;
+        listen(listenSock,LISTENQ);
+        clilen = sizeof(clientAddr);
 
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if(sockfd < 0){
-		printf("[-]Error in connection.\n");
-		exit(1);
-	}
-	printf("[+]Server Socket is created.\n");
-
-	memset(&serverAddr, '\0', sizeof(serverAddr));
-	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(PORT);
-	serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-	ret = bind(sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-	if(ret < 0){
-		printf("[-]Error in binding.\n");
-		exit(1);
-	}
-	printf("[+]Bind to port %d\n", 4444);
-
-	if(listen(sockfd, 10) == 0){
-		printf("[+]Listening....\n");
-	}else{
-		printf("[-]Error in binding.\n");
-	}
-
-
-	while(1){
-		newSocket = accept(sockfd, (struct sockaddr*)&newAddr, &addr_size);
-		if(newSocket < 0){
-			exit(1);
-		}
-		printf("Connection accepted from %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
-
-		if((childpid = fork()) == 0){
-			close(sockfd);
-			while( n = recv(newSocket, buffer, 1024, 0) > 0){
-			printf("Client: %s\n", buffer);
-			send(newSocket, buffer, n, 0);
-			bzero(buffer, sizeof(buffer));
-
-			}
-			close(newSocket);
+        while (1) {
+                connectSock = accept (listenSock, (struct sockaddr *) &clientAddr, &clilen);
+                if((pid=fork()) == 0) {
+                        close(listenSock);
+                        while ((n = recv(connectSock, request, MAXLINE,0)) > 0)  {
+                                char *message = "long";
+                                if (message != NULL) {
+                                        send(connectSock, message, strlen(message), 0);
+                                }
+                        }
+                        close(connectSock);
                         exit(0);
-		}
-		signal(SIGCHLD,sig_chld);
-		close(newSocket);
+                }
+                signal(SIGCHLD,sig_chld);
+                close(connectSock);
+        }
 
-	}
-
-	close(newSocket);
-
-
-	return 0;
 }
