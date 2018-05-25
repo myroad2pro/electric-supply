@@ -56,9 +56,10 @@ int main(){
                 if((pid=fork()) == 0) {
                         close(listenSock);
                         while ((n = recv(connectSock, request, MAXLINE,0)) > 0)  {
-                                char *message = "long";
-                                if (message != NULL) {
-                                        send(connectSock, message, strlen(message), 0);
+                                request[n]='\0';
+                                while(1) {
+                                        send(connectSock, request, n, 0);
+                                        sleep(1);
                                 }
                         }
                         close(connectSock);

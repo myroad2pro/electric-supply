@@ -6,10 +6,14 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/select.h>
+
 #define MAXLINE 1024
 #define PORT 3000
 
 int clientSocket;
+int kbhit();
+int getch();
 void showMenuLogin();
 void getResponse();
 char buffer[1024];
@@ -82,11 +86,40 @@ void showMenuLogin(){
 
 void getResponse(){
         char serverResponse[MAXLINE];
-        int n = recv(clientSocket, serverResponse, MAXLINE, 0);
-        if (n <= 0) {
-                perror("The server terminated prematurely");
-                exit(4);
-        }
-        serverResponse[n] = '\0';
-        printf("%s %d\n", serverResponse,n);
+	while (1) {
+		int n = recv(clientSocket, serverResponse, MAXLINE, 0);
+	        if (n <= 0) {
+	                perror("The server terminated prematurely");
+	                exit(4);
+	        }
+	        serverResponse[n] = '\0';
+	        printf("%s %d\n", serverResponse,n);
+		if (kbhit()) {
+			send(clientSocket, "stop", strlen("stop"), 0);
+			showMenuLogin();
+			break;
+		}
+
+	}
+
+}
+
+int kbhit()
+{
+    struct timeval tv = { 0L, 0L };
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(0, &fds);
+    return select(1, &fds, NULL, NULL, &tv);
+}
+
+int getch()
+{
+    int r;
+    unsigned char c;
+    if ((r = read(0, &c, sizeof(c))) < 0) {
+        return r;
+    } else {
+        return c;
+    }
 }
