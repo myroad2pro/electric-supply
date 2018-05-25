@@ -57,10 +57,7 @@ int main(){
                         close(listenSock);
                         while ((n = recv(connectSock, request, MAXLINE,0)) > 0)  {
                                 request[n]='\0';
-                                while(1) {
-                                        send(connectSock, request, n, 0);
-                                        sleep(1);
-                                }
+                                send(connectSock, request, n, 0);                
                         }
                         close(connectSock);
                         exit(0);

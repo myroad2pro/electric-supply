@@ -72,11 +72,21 @@ void showMenuLogin(){
 
                 switch (choice) {
                 case 1:
-                        send(clientSocket, "long", strlen("long"), 0);
+			send(clientSocket, "long", strlen("long"), 0);
 			getResponse();
+			while (1) {
+				printf("%s\n","running" );
+				if (kbhit()) {
+					send(clientSocket, "stop", strlen("stop"), 0);
+					getResponse();
+					showMenuLogin();
+					break;
+				}
+			 	sleep(1);
+			}
+
 
                 case 2:
-
                         break;
                 default:
                         exit(0);
@@ -85,23 +95,14 @@ void showMenuLogin(){
 }
 
 void getResponse(){
-        char serverResponse[MAXLINE];
-	while (1) {
-		int n = recv(clientSocket, serverResponse, MAXLINE, 0);
-	        if (n <= 0) {
-	                perror("The server terminated prematurely");
-	                exit(4);
-	        }
-	        serverResponse[n] = '\0';
-	        printf("%s %d\n", serverResponse,n);
-		if (kbhit()) {
-			send(clientSocket, "stop", strlen("stop"), 0);
-			showMenuLogin();
-			break;
-		}
-
-	}
-
+	char serverResponse[MAXLINE];
+      	int n = recv(clientSocket, serverResponse, MAXLINE, 0);
+      	if (n == 0) {
+	      perror("The server terminated prematurely");
+	      exit(4);
+      	}
+      serverResponse[n] = '\0';
+      printf("%s\n", serverResponse);
 }
 
 int kbhit()
