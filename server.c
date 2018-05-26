@@ -12,7 +12,7 @@
 #include <sys/shm.h>
 
 #define SHMSZ     4
-
+#define KEY "1234"
 #define MAXLINE 1024 /*max text line length*/
 #define SERV_PORT 3000 /*port*/
 #define LISTENQ 8 /*maximum number of client connections*/
@@ -60,7 +60,7 @@ int main(){
         int shmid;
         key_t key;
         int *shm;
-        key = 5678;
+        key = atoi(KEY);
 
         if ((shmid = shmget(key, SHMSZ, IPC_CREAT | 0666)) < 0) {
             perror("shmget");
@@ -72,7 +72,7 @@ int main(){
             exit(1);
         }
 
-        *shm = 1000;
+        *shm = 0;
 
 
         if((listenSock = socket(AF_INET,SOCK_STREAM,0)) < 0) {
@@ -102,8 +102,7 @@ int main(){
                         while ((n = recv(connectSock, request, MAXLINE,0)) > 0)  {
                                 request[n]='\0';
                                 cmd = convertRequestToCommand(request);
-                                printf("%s\n",cmd.code);
-                                send(connectSock, request, n, 0);
+                                send(connectSock,KEY, 4, 0);
                         }
                         close(connectSock);
                         exit(0);
