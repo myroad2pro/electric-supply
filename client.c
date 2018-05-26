@@ -18,7 +18,8 @@
 int clientSocket;
 char serverResponse[MAXLINE];
 int *shm;
-
+char *shm2;
+char info[1000];
 
 int kbhit();
 int getch();
@@ -30,9 +31,12 @@ void showMenuAction(char *deviceName, int MODE_DEFAULT, int MODE_SAVING);
 void getShareMemoryPointer(char * key_from_server);
 void runDevice(int voltage, char* deviceName);
 void stopDevice(char *deviceName);
-
+void getInfo(char * key_from_server);
 
 int main(){
+	getInfo("5678");
+	strcpy(info, shm2);
+	printf("%s\n",info );
 	struct sockaddr_in serverAddr;
 	clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if(clientSocket < 0){
@@ -54,8 +58,6 @@ int main(){
 
 	while(1){
 		showMenuDevices();
-
-
 	}
 
 	return 0;
@@ -64,6 +66,8 @@ int main(){
 void showMenuDevices(){
         int choice;
         char c;
+	char *a[3];
+	char *token;
         while (1) {
                 choice = 0;
                 printf("-----Welcome-----\n");
@@ -87,13 +91,31 @@ void showMenuDevices(){
 
                 switch (choice) {
                 case 1:
-			showMenuAction("TV",3000,500);
+			token = strtok(info,",");
+			a[0] = strtok(token,"|");
+		        a[1] = strtok(NULL,"|");
+		        a[2] = strtok(NULL,"|");
+			printf("%s %s %s\n",a[0],a[1],a[2] );
+			showMenuAction(a[0],atoi(a[1]),atoi(a[2]));
 			break;
                 case 2:
-			showMenuAction("Air Conditioner",1000,500);
+			token = strtok(info,",");
+			token = strtok(NULL,",");
+			a[0] = strtok(token,"|");
+			a[1] = strtok(NULL,"|");
+			a[2] = strtok(NULL,"|");
+			printf("%s %s %s\n",a[0],a[1],a[2] );
+			showMenuAction(a[0],atoi(a[1]),atoi(a[2]));
                         break;
 		case 3:
-			showMenuAction("PC",700,300);
+			token = strtok(info,",");
+			token = strtok(NULL,",");
+			token = strtok(NULL,",");
+			a[0] = strtok(token,"|");
+			a[1] = strtok(NULL,"|");
+			a[2] = strtok(NULL,"|");
+			printf("%s %s %s\n",a[0],a[1],a[2] );
+			showMenuAction(a[0],atoi(a[1]),atoi(a[2]));
 			break;
                 default:
                         exit(0);
@@ -178,7 +200,6 @@ void makeCommand(char* command, char* code, char* param1, char* param2){
         }
 }
 
-
 void getShareMemoryPointer(char * key_from_server){
 	int shmid;
         key_t key;
@@ -190,6 +211,22 @@ void getShareMemoryPointer(char * key_from_server){
 	}
 
 	if ((shm = shmat(shmid, NULL, 0)) == (int*) -1) {
+	    perror("shmat");
+	    exit(1);
+	}
+}
+
+void getInfo(char * key_from_server){
+	int shmid;
+        key_t key;
+	key = atoi(key_from_server);
+
+	if ((shmid = shmget(key, SHMSZ, 0666)) < 0) {
+	    perror("shmget");
+	    exit(1);
+	}
+
+	if ((shm2 = shmat(shmid, NULL, 0)) == (char*) -1) {
 	    perror("shmat");
 	    exit(1);
 	}
