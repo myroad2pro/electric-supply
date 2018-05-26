@@ -61,6 +61,7 @@ int main(){
         key_t key;
         int *shm;
         key = atoi(KEY);
+        int currentVoltage = 0;
 
         if ((shmid = shmget(key, SHMSZ, IPC_CREAT | 0666)) < 0) {
             perror("shmget");
@@ -102,8 +103,20 @@ int main(){
                         while ((n = recv(connectSock, request, MAXLINE,0)) > 0)  {
                                 request[n]='\0';
                                 cmd = convertRequestToCommand(request);
+                                if(strcmp(cmd.code,"STOP") == 0){
+                                        *shm = *shm - currentVoltage;
+                                        currentVoltage = 0;
+                                }else{
+                                        currentVoltage = atoi(cmd.params[1]);
+                                }
                                 send(connectSock,KEY, 4, 0);
+
                         }
+                        if (currentVoltage != 0){
+                                *shm = *shm - currentVoltage;
+                                currentVoltage = 0;
+                        }
+
                         close(connectSock);
                         exit(0);
                 }

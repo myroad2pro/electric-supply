@@ -28,7 +28,9 @@ void getResponse();
 void makeCommand(char* command, char* code, char* param1, char* param2);
 void showMenuAction(char *deviceName, int MODE_DEFAULT, int MODE_SAVING);
 void getShareMemoryPointer(char * key_from_server);
-char buffer[1024];
+void runDevice(int voltage, char* deviceName);
+void stopDevice(char *deviceName);
+
 
 int main(){
 	struct sockaddr_in serverAddr;
@@ -87,10 +89,12 @@ void showMenuDevices(){
                 case 1:
 			showMenuAction("TV",3000,500);
 			break;
-
-
                 case 2:
+			showMenuAction("Air Conditioner",1000,500);
                         break;
+		case 3:
+			showMenuAction("PC",700,300);
+			break;
                 default:
                         exit(0);
                 }
@@ -100,10 +104,6 @@ void showMenuDevices(){
 void showMenuAction(char *deviceName, int MODE_DEFAULT, int MODE_SAVING) {
 	int choice;
         char c;
-	char command[100];
-	char response[100];
-	char buffer[20];
-	int countDown ;
         while (1) {
                 choice = 0;
                 printf("-----Welcome-----\n");
@@ -125,43 +125,12 @@ void showMenuAction(char *deviceName, int MODE_DEFAULT, int MODE_SAVING) {
                 }
 
                 switch (choice) {
-                case 1:
-			snprintf(buffer, 10, "%d", MODE_DEFAULT);
-			makeCommand(command,"ON", deviceName,buffer);
-			send(clientSocket, command, strlen(command), 0);
-		 	getResponse();
-			getShareMemoryPointer(serverResponse);
-			*shm = *shm + MODE_DEFAULT;
-			countDown = 10;
-			while (1) {
-				if (*shm<=4500){
-					printf("%s %d\n","running normal",*shm );
-				}
-				else if(*shm <= 5000){
-					printf("%s\n", "warning over 4500" );
-				}
-				else{
-					printf("%s %d\n", "system going down", countDown);
-					countDown--;
-					if(countDown < 0){
-						makeCommand(command,"STOP", deviceName, NULL);
-						*shm = *shm - MODE_DEFAULT;
-						send(clientSocket, command, strlen(command), 0);
-						getResponse();
-						break;
-					}
-				}
-				if (kbhit()) {
-					makeCommand(command,"STOP", deviceName, NULL);
-					*shm = *shm - MODE_DEFAULT;
-					send(clientSocket, command, strlen(command), 0);
-					getResponse();
-					break;
-				}
-				sleep(1);
-			}
+		case 1:
+			runDevice(MODE_DEFAULT,deviceName);
+			break;
                 case 2:
-                        break;
+			runDevice(MODE_SAVING,deviceName);
+			break;
                 default:
                         exit(0);
                 }
@@ -224,4 +193,48 @@ void getShareMemoryPointer(char * key_from_server){
 	    perror("shmat");
 	    exit(1);
 	}
+}
+
+void runDevice(int voltage, char *deviceName){
+	char command[100];
+	char response[100];
+	char buffer[20];
+	int countDown ;
+	snprintf(buffer, 10, "%d", voltage);
+	makeCommand(command,"ON", deviceName,buffer);
+	send(clientSocket, command, strlen(command), 0);
+	getResponse();
+	getShareMemoryPointer(serverResponse);
+	*shm = *shm + voltage;
+	countDown = 10;
+	while (1) {
+		if (*shm<=4500){
+			printf("The current device is running with %d\n Press enter to stop this device\n",*shm);
+		}
+		else if(*shm <= 5000){
+			printf("The threshold is exceeded. The supply currently is %d\n",*shm);
+		}
+		else{
+			printf("Maximum threshold is exceeded. A device will be turn off in %d\n", countDown);
+			countDown--;
+			if(countDown < 0){
+				stopDevice(deviceName);
+				break;
+			}
+		}
+
+		if (kbhit()) {
+			stopDevice(deviceName);
+			break;
+		}
+		sleep(1);
+	}
+}
+
+void stopDevice(char *deviceName)
+{
+	char command[100];
+	makeCommand(command,"STOP", deviceName, NULL);
+	send(clientSocket, command, strlen(command), 0);
+	getResponse();
 }
