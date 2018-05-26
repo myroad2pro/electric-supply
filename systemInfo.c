@@ -11,10 +11,12 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #define SHMSZ    1024
+
+
 char* readFileIntoString() {
         char * buffer = 0;
         long length;
-        FILE * f = fopen ("equipInfo.txt", "rb");
+        FILE * f = fopen ("systemInfo.txt", "rb");
 
         if (f)
         {
@@ -40,15 +42,18 @@ main()
     int shmid;
     key_t key;
     char *shm, *s;
-    key = 5678;
+    key = 9999;
+
     if ((shmid = shmget(key, SHMSZ, IPC_CREAT | 0666)) < 0) {
         perror("shmget");
         exit(1);
     }
+
     if ((shm = shmat(shmid, NULL, 0)) == (char *) -1) {
         perror("shmat");
         exit(1);
     }
-    strcpy(shm,readFileIntoString());
+    s = shm;
+    strcpy(s,readFileIntoString());
     exit(0);
 }

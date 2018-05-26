@@ -20,6 +20,9 @@ char serverResponse[MAXLINE];
 int *shm;
 char *shm2;
 char info[1000];
+char systemInfo[1000];
+int threshold;
+int maxThreshold;
 
 int kbhit();
 int getch();
@@ -29,14 +32,22 @@ void getResponse();
 void makeCommand(char* command, char* code, char* param1, char* param2);
 void showMenuAction(char *deviceName, int MODE_DEFAULT, int MODE_SAVING);
 void getShareMemoryPointer(char * key_from_server);
-void runDevice(int voltage, char* deviceName);
+void runDevice(int voltage, char* deviceName,int isSaving);
 void stopDevice(char *deviceName);
 void getInfo(char * key_from_server);
 
 int main(){
 	getInfo("5678");
 	strcpy(info, shm2);
-	printf("%s\n",info );
+	getInfo("9999");
+	strcpy(systemInfo,shm2);
+	char *token;
+        token = strtok(systemInfo,"|");
+	threshold = atoi(token);
+	token = strtok(NULL,"|");
+	maxThreshold = atoi(token);
+
+
 	struct sockaddr_in serverAddr;
 	clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if(clientSocket < 0){
@@ -95,7 +106,6 @@ void showMenuDevices(){
 			a[0] = strtok(token,"|");
 		        a[1] = strtok(NULL,"|");
 		        a[2] = strtok(NULL,"|");
-			printf("%s %s %s\n",a[0],a[1],a[2] );
 			showMenuAction(a[0],atoi(a[1]),atoi(a[2]));
 			break;
                 case 2:
@@ -104,7 +114,6 @@ void showMenuDevices(){
 			a[0] = strtok(token,"|");
 			a[1] = strtok(NULL,"|");
 			a[2] = strtok(NULL,"|");
-			printf("%s %s %s\n",a[0],a[1],a[2] );
 			showMenuAction(a[0],atoi(a[1]),atoi(a[2]));
                         break;
 		case 3:
@@ -114,7 +123,7 @@ void showMenuDevices(){
 			a[0] = strtok(token,"|");
 			a[1] = strtok(NULL,"|");
 			a[2] = strtok(NULL,"|");
-			printf("%s %s %s\n",a[0],a[1],a[2] );
+		
 			showMenuAction(a[0],atoi(a[1]),atoi(a[2]));
 			break;
                 default:
@@ -148,10 +157,10 @@ void showMenuAction(char *deviceName, int MODE_DEFAULT, int MODE_SAVING) {
 
                 switch (choice) {
 		case 1:
-			runDevice(MODE_DEFAULT,deviceName);
+			runDevice(MODE_DEFAULT,deviceName,0);
 			break;
                 case 2:
-			runDevice(MODE_SAVING,deviceName);
+			runDevice(MODE_SAVING,deviceName,1);
 			break;
                 default:
                         exit(0);
@@ -221,7 +230,7 @@ void getInfo(char * key_from_server){
         key_t key;
 	key = atoi(key_from_server);
 
-	if ((shmid = shmget(key, SHMSZ, 0666)) < 0) {
+	if ((shmid = shmget(key, 1000, 0666)) < 0) {
 	    perror("shmget");
 	    exit(1);
 	}
@@ -232,23 +241,29 @@ void getInfo(char * key_from_server){
 	}
 }
 
-void runDevice(int voltage, char *deviceName){
+void runDevice(int voltage, char *deviceName, int isSaving){
 	char command[100];
 	char response[100];
 	char buffer[20];
+	char param[20];
 	int countDown ;
+	if(isSaving){
+		strcat(deviceName,"|SAVING|");
+	}
+	else{
+		strcat(deviceName,"|NORMAL|");
+	}
 	snprintf(buffer, 10, "%d", voltage);
 	makeCommand(command,"ON", deviceName,buffer);
 	send(clientSocket, command, strlen(command), 0);
 	getResponse();
 	getShareMemoryPointer(serverResponse);
-	*shm = *shm + voltage;
 	countDown = 10;
 	while (1) {
-		if (*shm<=4500){
+		if (*shm<= threshold){
 			printf("The current device is running with %d\n Press enter to stop this device\n",*shm);
 		}
-		else if(*shm <= 5000){
+		else if(*shm <= maxThreshold){
 			printf("The threshold is exceeded. The supply currently is %d\n",*shm);
 		}
 		else{

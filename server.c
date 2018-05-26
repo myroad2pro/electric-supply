@@ -19,7 +19,7 @@
 
 typedef struct {
         char code[100];
-        char params[2][256];
+        char params[3][256];
 } command;
 
 int listenSock, connectSock, n;
@@ -28,7 +28,23 @@ char request[MAXLINE];
 struct sockaddr_in serverAddr, clientAddr;
 socklen_t clilen;
 command cmd;
+char *shm2;
 
+void getInfo(char * key_from_server){
+	int shmid;
+        key_t key;
+	key = atoi(key_from_server);
+
+	if ((shmid = shmget(key, 1000, 0666)) < 0) {
+	    perror("shmget");
+	    exit(1);
+	}
+
+	if ((shm2 = shmat(shmid, NULL, 0)) == (char*) -1) {
+	    perror("shmat");
+	    exit(1);
+	}
+}
 
 void sig_chld(int singno){
         pid_t pid;
@@ -75,7 +91,7 @@ int main(){
 
         *shm = 0;
 
-
+        getInfo("1111");
         if((listenSock = socket(AF_INET,SOCK_STREAM,0)) < 0) {
                 printf("Loi tao socket\n");
                 exit(1);
@@ -106,8 +122,11 @@ int main(){
                                 if(strcmp(cmd.code,"STOP") == 0){
                                         *shm = *shm - currentVoltage;
                                         currentVoltage = 0;
+                                        sprintf(shm2,"%s|%s|%s|",cmd.params[0],"STOP","0");
                                 }else{
-                                        currentVoltage = atoi(cmd.params[1]);
+                                        sprintf(shm2,"%s|%s|%s|",cmd.params[0], cmd.params[1],cmd.params[2]);
+                                        currentVoltage = atoi(cmd.params[2]);
+                                        *shm = *shm + currentVoltage;
                                 }
                                 send(connectSock,KEY, 4, 0);
 
