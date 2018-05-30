@@ -14,7 +14,14 @@
 #define PORT 3000
 #define SHMSZ     4
 
+typedef struct {
+   char name[100];
+   int normalMode;
+   int savingMode;
+} device;
 
+device* deviceList;
+int N;
 int clientSocket;
 char serverResponse[MAXLINE];
 int *shm;
@@ -30,15 +37,21 @@ void showMenuDevices();
 void showMenu();
 void getResponse();
 void makeCommand(char* command, char* code, char* param1, char* param2);
-void showMenuAction(char *deviceName, int MODE_DEFAULT, int MODE_SAVING);
+void showMenuAction(int i);
 void getShareMemoryPointer(char * key_from_server);
-void runDevice(int voltage, char* deviceName,int isSaving);
+void runDevice(int i,int isSaving);
 void stopDevice(char *deviceName);
 void getInfo(char * key_from_server);
+int countEntityNumber(char* str);
+char** tokenizeString(char* str);
+device parseStringToStruct(char* str);
+device* parseStringToStructArray(char* str);
 
 int main(){
 	getInfo("5678");
 	strcpy(info, shm2);
+	N  = countEntityNumber(info);
+	deviceList = parseStringToStructArray(info);
 	getInfo("9999");
 	strcpy(systemInfo,shm2);
 	char *token;
@@ -46,8 +59,6 @@ int main(){
 	threshold = atoi(token);
 	token = strtok(NULL,"|");
 	maxThreshold = atoi(token);
-
-
 	struct sockaddr_in serverAddr;
 	clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if(clientSocket < 0){
@@ -77,62 +88,37 @@ int main(){
 void showMenuDevices(){
         int choice;
         char c;
-	char *a[3];
-	char *token;
         while (1) {
                 choice = 0;
                 printf("-----Welcome-----\n");
                 printf("Please choose type of device to connect\n");
-                printf("1. TV\n");
-                printf("2. Air Conditioner\n");
-                printf("3. PC\n");
-		printf("4. Quit\n");
-                printf("Your choice: ");
+                int i;
+		for (i = 0; i < N; ++i)
+		{
+			printf("%d.%s(%d|%d)\n",i+1,deviceList[i].name, deviceList[i].normalMode, deviceList[i].savingMode);
+		}
+		printf("%d. Quit\n", N+1);
+		printf("Your choice: \n");
                 while (choice == 0) {
                         if(scanf("%d",&choice) < 1) {
                                 choice = 0;
                         }
-                        if(choice < 1 || choice > 4) {
+                        if(choice < 1 || choice > N+1) {
                                 choice = 0;
                                 printf("Invalid choice!\n");
                                 printf("Enter again: ");
                         }
                         while((c = getchar())!='\n') ;
                 }
-
-                switch (choice) {
-                case 1:
-			token = strtok(info,",");
-			a[0] = strtok(token,"|");
-		        a[1] = strtok(NULL,"|");
-		        a[2] = strtok(NULL,"|");
-			showMenuAction(a[0],atoi(a[1]),atoi(a[2]));
-			break;
-                case 2:
-			token = strtok(info,",");
-			token = strtok(NULL,",");
-			a[0] = strtok(token,"|");
-			a[1] = strtok(NULL,"|");
-			a[2] = strtok(NULL,"|");
-			showMenuAction(a[0],atoi(a[1]),atoi(a[2]));
-                        break;
-		case 3:
-			token = strtok(info,",");
-			token = strtok(NULL,",");
-			token = strtok(NULL,",");
-			a[0] = strtok(token,"|");
-			a[1] = strtok(NULL,"|");
-			a[2] = strtok(NULL,"|");
-		
-			showMenuAction(a[0],atoi(a[1]),atoi(a[2]));
-			break;
-                default:
-                        exit(0);
-                }
+		if (1<= choice && choice <= N){
+			showMenuAction(choice);
+		}else{
+			exit(0);
+		}
         }
 }
 
-void showMenuAction(char *deviceName, int MODE_DEFAULT, int MODE_SAVING) {
+void showMenuAction(int i) {
 	int choice;
         char c;
         while (1) {
@@ -157,10 +143,10 @@ void showMenuAction(char *deviceName, int MODE_DEFAULT, int MODE_SAVING) {
 
                 switch (choice) {
 		case 1:
-			runDevice(MODE_DEFAULT,deviceName,0);
+			runDevice(i-1,0);
 			break;
                 case 2:
-			runDevice(MODE_SAVING,deviceName,1);
+			runDevice(i-1,1);
 			break;
                 default:
                         exit(0);
@@ -241,17 +227,22 @@ void getInfo(char * key_from_server){
 	}
 }
 
-void runDevice(int voltage, char *deviceName, int isSaving){
+void runDevice(int i, int isSaving){
 	char command[100];
 	char response[100];
 	char buffer[20];
 	char param[20];
 	int countDown ;
+	char deviceName[100];
+	strcpy(deviceName,deviceList[i].name);
+	int voltage;
 	if(isSaving){
 		strcat(deviceName,"|SAVING|");
+		voltage = deviceList[i].savingMode;
 	}
 	else{
 		strcat(deviceName,"|NORMAL|");
+		voltage = deviceList[i].normalMode;
 	}
 	snprintf(buffer, 10, "%d", voltage);
 	makeCommand(command,"ON", deviceName,buffer);
@@ -289,4 +280,62 @@ void stopDevice(char *deviceName)
 	makeCommand(command,"STOP", deviceName, NULL);
 	send(clientSocket, command, strlen(command), 0);
 	getResponse();
+}
+
+
+int countEntityNumber(char* str) {
+	int i;
+	int count=0;
+	for ( i = 0; i < strlen(str); ++i)
+	{
+		if (str[i]==',')
+		{
+			count++;
+		}
+	}
+	return count;
+}
+
+
+char** tokenizeString(char* str) {
+	int count = countEntityNumber(str);
+	char** tokenArray;
+	tokenArray = (char**) malloc(count*sizeof(char*));
+	char* dup = strdup(str);
+	char* token;
+	int i;
+	token = strtok(dup, ",");
+	tokenArray[0]=token;
+	for (i = 1; i < count; ++i)
+	{
+		tokenArray[i] = strtok(NULL,",");
+	}
+	return tokenArray;
+}
+
+device parseStringToStruct(char* str) {
+	device hanhvl;
+	char* dup = strdup(str);
+	char* token;
+	int i;
+   	token = strtok(dup, "|");
+   	strcpy(hanhvl.name, token);
+   	token = strtok(NULL,"|");
+   	hanhvl.normalMode = atoi(strdup(token));
+   	token = strtok(NULL,"|");
+   	hanhvl.savingMode = atoi(strdup(token));
+	return hanhvl;
+}
+
+device* parseStringToStructArray(char* str) {
+	int count = countEntityNumber(str);
+	char* dup = strdup(str);
+	device* hanhvl;
+	hanhvl = (device*) malloc(count*sizeof(device));
+	int i;
+	for (i = 0; i < count; ++i)
+	{
+		hanhvl[i]=parseStringToStruct(tokenizeString(dup)[i]);
+	}
+	return hanhvl;
 }

@@ -67,21 +67,15 @@ main()
     strcpy(s,string);
     char *a[3];
     char temp[100];
+    char buffer[100];
     while (1) {
             if(strcmp(shm,"FALSE") != 0){
                     strcpy(temp,shm);
                     a[0] = strtok(temp,"|");
                     a[1] = strtok(NULL,"|");
                     a[2] = strtok(NULL,"|");
-                    if(strcmp(a[0],"TV") == 0){
-                        writeLog("logTV.txt",a[0],a[1],a[2]);
-                    }
-                    else if(strcmp(a[0],"AR")==0){
-                            writeLog("logAR.txt",a[0],a[1],a[2]);
-                    }
-                    else if(strcmp(a[0],"PC")==0){
-                            writeLog("logPC.txt",a[0],a[1],a[2]);
-                    }
+                    sprintf(buffer,"log%s.txt",a[0]);
+                    writeLog(buffer,a[0],a[1],a[2]);
                     writeLog("log.txt",a[0],a[1],a[2]);
                     strcpy(shm,"FALSE");
             }
