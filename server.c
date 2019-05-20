@@ -11,11 +11,11 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
-#define SHMSZ     4
+#define SHMSZ 8
 #define KEY "1234"
 #define MAXLINE 1024 /*max text line length*/
 #define SERV_PORT 3000 /*port*/
-#define LISTENQ 8 /*maximum number of client connections*/
+#define LISTENQ 10 /*maximum number of client connections*/
 
 typedef struct {
         char code[100];
@@ -30,6 +30,7 @@ socklen_t clilen;
 command cmd;
 char *shm2;
 
+// lấy địa chỉ bộ nhớ dùng chung của log
 void getInfo(char * key_from_server){
 	int shmid;
         key_t key;
@@ -79,19 +80,24 @@ int main(){
         key = atoi(KEY);
         int currentVoltage = 0;
 
-        if ((shmid = shmget(key, SHMSZ, IPC_CREAT | 0666)) < 0) {
+        // tạo bộ nhớ dùng chung 
+        if ((shmid = shmget(key, 8, IPC_CREAT | 0666)) < 0) {
             perror("shmget");
             exit(1);
         }
 
+        // lấy địa chỉ bộ nhớ dùng chung
         if ((shm = shmat(shmid, NULL, 0)) == (int *) -1) {
             perror("shmat");
             exit(1);
         }
 
         *shm = 0;
+        int *currentDevice = shm+1;
+        *currentDevice = 2;
+        getInfo("1111");                // sử dụng log của hệ thống
 
-        getInfo("1111");
+        // khởi tạo kết nối IP
         if((listenSock = socket(AF_INET,SOCK_STREAM,0)) < 0) {
                 printf("Loi tao socket\n");
                 exit(1);
@@ -112,10 +118,13 @@ int main(){
         listen(listenSock,LISTENQ);
         clilen = sizeof(clientAddr);
 
+        // nhận kết nối từ client
         while (1) {
                 connectSock = accept (listenSock, (struct sockaddr *) &clientAddr, &clilen);
+                // tạo tiến trình con 
                 if((pid=fork()) == 0) {
                         close(listenSock);
+                        // nhận request từ client
                         while ((n = recv(connectSock, request, MAXLINE,0)) > 0)  {
                                 request[n]='\0';
                                 cmd = convertRequestToCommand(request);

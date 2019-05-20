@@ -1,3 +1,5 @@
+/***** đọc thông tin về các thiết bị hiện có và lưu vào bộ nhớ dùng chung *******/
+
 #include <dirent.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -11,6 +13,8 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #define SHMSZ    1024
+
+// đọc thông tin các thiết bị hiện có
 char* readFileIntoString() {
         char * buffer = 0;
         long length;
@@ -34,21 +38,27 @@ char* readFileIntoString() {
           return buffer;
         }
 }
-main()
+
+int main()
 {
     char c;
     int shmid;
     key_t key;
     char *shm, *s;
     key = 5678;
+    // tạo bộ nhớ dùng chung
     if ((shmid = shmget(key, SHMSZ, IPC_CREAT | 0666)) < 0) {
         perror("shmget");
         exit(1);
     }
+
+    // lấy địa chỉ bộ nhớ dùng chung
     if ((shm = shmat(shmid, NULL, 0)) == (char *) -1) {
         perror("shmat");
         exit(1);
     }
+
+    // ghi danh sách các thiết bị có sẵn vào bộ nhớ dùng chung
     strcpy(shm,readFileIntoString());
     exit(0);
 }
