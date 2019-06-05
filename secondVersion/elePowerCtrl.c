@@ -189,11 +189,13 @@ int main()
                                 // set device to SAVING mode
                                 memset(equipInfo.status, 0, sizeof(equipInfo.status));
                                 strcpy(equipInfo.status, "SAVING");
+                                equipInfo.currentSupply = equipInfo.savingVoltage;
                                 // send message to powerSupplyInfoAccess to write SystemInfo
                                 sprintf(message2.mesg_text, "%d|%d|%d|%s|", T_WRITE, T_SYSTEM, modifiedSupply, systemInfo.status);
                                 msgsnd(msgId2, &message2, sizeof(message2), 0);
                                 // send message to powerSupplyInfoAccess to write deviceInfo
-
+                                sprintf(message2.mesg_text, "%d|%d|%d|%d|%s|", T_WRITE, T_DEVICE, deviceID, equipInfo.currentSupply, equipInfo.status);
+                                msgsnd(msgId2, &message2, sizeof(message2), 0);
                                 // send message to powerSupply
 
                                 // log

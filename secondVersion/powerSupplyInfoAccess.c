@@ -26,7 +26,7 @@ typedef struct
 
 typedef struct
 {
-    int deviceID, normalVoltage, savingVoltage;
+    int deviceID, normalVoltage, savingVoltage, currentSupply;
     char status[10];
 } t_deviceInfo;
 
@@ -49,8 +49,9 @@ int main()
     int deviceID;
     FILE *fp = NULL;
     char messageBuffer[100] = "", infoBuffer[100] = "";
-    char *infoToken;
+    char *infoToken, *messageToken;;
     t_systemInfo systemInfo;
+    t_deviceInfo deviceInfo;
 
     // ftok to generate unique key
     key1 = ftok("keyfile", 3993); // for elePowerCtrl
@@ -66,7 +67,6 @@ int main()
         if (msgrcv(msgId2, &message2, sizeof(message2), 1, 0) != -1)
         {
             int accessType, infoType;
-            char *messageToken;
 
             strcpy(messageBuffer, message2.mesg_text);
             messageToken = strtok(messageBuffer, "|");
@@ -129,9 +129,48 @@ int main()
                     freopen("sysInfo", "w", fp);
                     fprintf(fp, "%d|%d|%d|%s|", systemInfo.warningThreshold, systemInfo.maxThreshold, systemInfo.currentSupply, systemInfo.status);
                     fclose(fp);
+                    fp = NULL;
                 }
                 else if (infoType = T_DEVICE)
                 {
+                    // read from message
+                    messageToken = strtok(NULL, "|");
+                    deviceID = atoi(messageToken);
+                    messageToken = strtok(NULL, "|");
+                    deviceInfo.currentSupply = atoi(messageToken);
+                    messageToken = strtok(NULL, "|");
+                    strcpy(deviceInfo.status, messageToken);
+
+                    // copy contents from deviceInfo to temp
+                    FILE *fin = fopen("deviceInfo", "r");
+                    FILE *fout = fopen("temp", "w");
+                    int lineNo = 0;
+                    while (!feof(fin))
+                    {
+                        memset(infoBuffer, 0, sizeof(infoBuffer));
+                        fgets(infoBuffer, 100, fin);
+
+                        if (lineNo == deviceID)
+                        {   
+                            char deviceName[100];
+                            infoToken = strtok(infoBuffer, "|");
+                            strcpy(deviceName, infoToken);
+                            infoToken = strtok(NULL, "|");
+                            deviceInfo.normalVoltage = atoi(infoToken);
+                            infoToken = strtok(NULL, "|");
+                            deviceInfo.savingVoltage = atoi(infoToken);
+                            fprintf(fout, "%s|%d|%d|%s|\n", deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, deviceInfo.status);
+                        }else{
+                            fprintf(fout, "%s", infoBuffer);
+                        }
+                        lineNo++;
+                    }
+                    fclose(fin);
+                    fin = NULL;
+                    fclose(fout);
+                    fout = NULL;
+                    remove("deviceInfo");
+                    rename("temp", "deviceInfo");
                 }
             }
             free(messageToken);
