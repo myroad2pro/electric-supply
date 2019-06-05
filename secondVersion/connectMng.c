@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/msg.h>
 
 #define SHMSZ 8
 #define KEY "1234"
@@ -42,17 +43,17 @@ typedef struct
 
 enum deviceMode
 {
-    OFF,
-    NORMAL,
-    SAVING
+    D_OFF,
+    D_NORMAL,
+    D_SAVING
 };
 
 enum systemStatus
 {
-    OFF,
-    NORMAL,
-    WARNING,
-    OVER
+    S_OFF,
+    S_NORMAL,
+    S_WARNING,
+    S_OVER
 };
 
 int listenSock,
@@ -63,6 +64,7 @@ struct sockaddr_in serverAddr, clientAddr;
 socklen_t clilen;
 command cmd;
 char *shm2;
+t_systemInfo systemInfo;
 
 // lấy địa chỉ bộ nhớ dùng chung của log
 void getInfo(char *key_from_server)
@@ -198,9 +200,10 @@ int main()
 void powerSupply(command cmd)
 {
     int deviceId = atoi(cmd.params[0]);
-    t_deviceInfo equipInfo;
+    t_deviceInfo deviceInfo;
     int voltage, mode;
-    char response[100];
+    char response[100], infoBuffer[100];
+    char *infoToken;
     key_t key1, key2, key3;
     int msgId1, msgId2, msgId3;
 
@@ -219,23 +222,20 @@ void powerSupply(command cmd)
     {
         //mode = elePowerCtrl(deviceId, OFF);
         sprintf(message1.mesg_text, "%d|%s|", deviceId, "OFF");
-
         // msgsnd to send message
         msgsnd(msgId1, &message1, sizeof(message1), 0);
-        // *shm = *shm - currentVoltage;
-        // currentVoltage = 0;
-        // sprintf(shm2, "%s|%s|%s|", cmd.params[0], "STOP", "0");
     }
     else
     {
         sprintf(message1.mesg_text, "%d|%s|", deviceId, cmd.params[1]);
-
         // msgsnd to send message
         msgsnd(msgId1, &message1, sizeof(message1), 0);
-
-        //sprintf(, "%s|%s|%s|", cmd.params[0], cmd.params[1], cmd.params[2]);
-        // currentVoltage = atoi(cmd.params[2]);
-        // *shm = *shm + currentVoltage;
+    }
+    if (msgrcv(msgId3, &message3, sizeof(message3), 1, 0) != -1)
+    {
+        memset(infoBuffer, 0, sizeof(infoBuffer));
+        strcpy(infoBuffer, message3.mesg_text);
+        send(connectSock, infoBuffer, sizeof(infoBuffer), 0);
     }
 
     //send(connectSock, KEY, 4, 0);

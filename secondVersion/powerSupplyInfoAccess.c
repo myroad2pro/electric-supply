@@ -86,6 +86,7 @@ int main()
                     strcpy(message2.mesg_text, infoBuffer);
                     msgsnd(msgId2, &message2, sizeof(message2), 0);
                     fclose(fp);
+                    fp = NULL;
                 }
                 else if (infoType == T_DEVICE)
                 {

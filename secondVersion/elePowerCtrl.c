@@ -44,17 +44,17 @@ enum t_accessType
 
 enum t_deviceMode
 {
-    OFF,
-    NORMAL,
-    SAVING
+    D_OFF,
+    D_NORMAL,
+    D_SAVING
 };
 
 enum t_systemStatus
 {
-    OFF,
-    NORMAL,
-    WARNING,
-    OVER
+    S_OFF,
+    S_NORMAL,
+    S_WARNING,
+    S_OVER
 };
 
 int main()
@@ -162,19 +162,29 @@ int main()
             }
             else
             {
-                if (strcmp(equipInfo.status, "OFF") == 0 && strcmp(requestedMode, "OFF") != 0)
+                int predictedSupply = systemInfo.currentSupply - equipInfo.currentSupply + requestedSupply;
+                if (predictedSupply > systemInfo.maxThreshold)
                 {
-                    int predictedSupply = systemInfo.currentSupply + requestedSupply;
-                    if (predictedSupply > systemInfo.maxThreshold)
+                    if (strcmp(requestedMode, "NORMAL") == 0)
                     {
-                        if (strcmp(requestedMode, "NORMAL") == 0)
+                        // request: saving -> normal
+                        if (strcmp(equipInfo.status, "SAVING") == 0)
+                        {
+                            // nothing happens
+                            memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
+                            sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
+                            // send message to powerSupply
+                            msgsnd(msgId3, &message3, sizeof(message3), 0);
+                        }
+                        else // request: off -> normal
                         {
                             // adjust to saving mode
-                            int modifiedSupply = systemInfo.currentSupply + equipInfo.savingVoltage;
+                            int modifiedSupply = systemInfo.currentSupply - equipInfo.currentSupply + equipInfo.savingVoltage;
                             if (modifiedSupply > systemInfo.maxThreshold)
                             {
                                 memset(equipInfo.status, 0, sizeof(equipInfo.status));
                                 strcpy(equipInfo.status, "OFF");
+                                equipInfo.currentSupply = 0;
                                 // send message to powerSupply
                                 memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
                                 sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
@@ -197,20 +207,48 @@ int main()
                                 sprintf(message2.mesg_text, "%d|%d|%d|%d|%s|", T_WRITE, T_DEVICE, deviceID, equipInfo.currentSupply, equipInfo.status);
                                 msgsnd(msgId2, &message2, sizeof(message2), 0);
                                 // send message to powerSupply
-
+                                memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
+                                sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
                                 // log
                             }
                         }
-                        else if (strcmp(requestedMode, "SAVING") == 0)
-                        {
-                        }
                     }
-                    else if (predictedSupply >= systemInfo.warningThreshold)
+                    else if (strcmp(requestedMode, "SAVING") == 0)
                     {
+                        // request: off -> saving
+                        // nothing happens
+                        memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
+                        sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
+                        // send message to powerSupply
+                        msgsnd(msgId3, &message3, sizeof(message3), 0);
                     }
-                    else
+                }
+                else
+                {
+                    if (predictedSupply >= systemInfo.warningThreshold)
                     {
+                        // set system to WARNING state
+                        memset(systemInfo.status, 0, sizeof(systemInfo.status));
+                        strcpy(systemInfo.status, "WARNING");
+                    }else{
+                        // set system to WARNING state
+                        memset(systemInfo.status, 0, sizeof(systemInfo.status));
+                        strcpy(systemInfo.status, "NORMAL");
                     }
+
+                    // set device's current supply to requested supply
+                    equipInfo.currentSupply = requestedSupply;
+                    strcpy(equipInfo.status, requestedMode);
+                    // send message to powerSupplyInfoAccess to write SystemInfo
+                    sprintf(message2.mesg_text, "%d|%d|%d|%s|", T_WRITE, T_SYSTEM, predictedSupply, systemInfo.status);
+                    msgsnd(msgId2, &message2, sizeof(message2), 0);
+                    // send message to powerSupplyInfoAccess to write deviceInfo
+                    sprintf(message2.mesg_text, "%d|%d|%d|%d|%s|", T_WRITE, T_DEVICE, deviceID, equipInfo.currentSupply, equipInfo.status);
+                    msgsnd(msgId2, &message2, sizeof(message2), 0);
+                    // send message to powerSupply
+                    memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
+                    sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
+                    // log
                 }
             }
         }
@@ -219,6 +257,7 @@ int main()
     // to destroy the message queue
     msgctl(msgId1, IPC_RMID, NULL);
     msgctl(msgId2, IPC_RMID, NULL);
+    msgctl(msgId3, IPC_RMID, NULL);
 
     return 0;
 }
