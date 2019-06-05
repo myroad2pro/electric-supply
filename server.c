@@ -97,6 +97,7 @@ int main(){
         *currentDevice = 2;
         getInfo("1111");                // sử dụng log của hệ thống
 
+        // connectMng
         // khởi tạo kết nối IP
         if((listenSock = socket(AF_INET,SOCK_STREAM,0)) < 0) {
                 printf("Loi tao socket\n");
@@ -125,6 +126,7 @@ int main(){
                 if((pid=fork()) == 0) {
                         close(listenSock);
                         // nhận request từ client
+                        // powerSupply
                         while ((n = recv(connectSock, request, MAXLINE,0)) > 0)  {
                                 request[n]='\0';
                                 cmd = convertRequestToCommand(request);
