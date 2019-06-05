@@ -20,12 +20,14 @@ struct mesg_buffer
 
 typedef struct
 {
-    int warningThreshold, maxThreshold, currentSupply, status;
+    int warningThreshold, maxThreshold, currentSupply;
+    char status[10];
 } t_systemInfo;
 
 typedef struct
 {
-    int deviceID, normalVoltage, savingVoltage, status;
+    int deviceID, normalVoltage, savingVoltage;
+    char status[10];
 } t_deviceInfo;
 
 enum t_infoType
@@ -47,6 +49,8 @@ int main()
     int deviceID;
     FILE *fp = NULL;
     char messageBuffer[100] = "", infoBuffer[100] = "";
+    char *infoToken;
+    t_systemInfo systemInfo;
 
     // ftok to generate unique key
     key1 = ftok("keyfile", 3993); // for elePowerCtrl
@@ -75,6 +79,7 @@ int main()
                 if (infoType == T_SYSTEM)
                 {
                     fp = fopen("sysInfo", "r");
+                    memset(infoBuffer, 0, sizeof(infoBuffer));
                     fgets(infoBuffer, 100, fp);
 
                     memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
@@ -87,13 +92,52 @@ int main()
                     messageToken = strtok(NULL, "|");
                     deviceID = atoi(messageToken);
                     fp = fopen("deviceInfo", "r");
-                    
+                    int i;
+                    for (i = 0; i <= deviceID; i++)
+                    {
+                        memset(infoBuffer, 0, sizeof(infoBuffer));
+                        fgets(infoBuffer, 100, fp);
+                    }
+
+                    memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
+                    strcpy(message2.mesg_text, infoBuffer);
+                    msgsnd(msgId2, &message2, sizeof(message2), 0);
                     fclose(fp);
+                    fp = NULL;
                 }
             }
             else if (accessType = T_WRITE)
             {
+                if (infoType == T_SYSTEM)
+                {
+                    // read from message
+                    messageToken = strtok(NULL, "|");
+                    systemInfo.currentSupply = atoi(messageToken);
+                    messageToken = strtok(NULL, "|");
+                    strcpy(systemInfo.status, messageToken);
+
+                    // read from systemInfo
+                    fp = fopen("sysInfo", "r");
+                    memset(infoBuffer, 0, sizeof(infoBuffer));
+                    fgets(infoBuffer, 100, fp);
+                    // extract info
+                    infoToken = strtok(infoBuffer, "|");
+                    systemInfo.warningThreshold = atoi(infoToken);
+                    infoToken = strtok(NULL, "|");
+                    systemInfo.maxThreshold = atoi(infoToken);
+                    // reopen
+                    freopen("sysInfo", "w", fp);
+                    fprintf(fp, "%d|%d|%d|%s|", systemInfo.warningThreshold, systemInfo.maxThreshold, systemInfo.currentSupply, systemInfo.status);
+                    fclose(fp);
+                }
+                else if (infoType = T_DEVICE)
+                {
+                }
             }
+            free(messageToken);
+            messageToken = NULL;
+            free(infoToken);
+            infoToken = NULL;
         }
     }
 

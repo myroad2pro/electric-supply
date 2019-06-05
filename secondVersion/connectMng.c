@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -21,7 +22,7 @@ struct mesg_buffer
 {
     long mesg_type;
     char mesg_text[100];
-} message1, message2;
+} message1, message2, message3;
 
 typedef struct
 {
@@ -53,8 +54,6 @@ enum systemStatus
     WARNING,
     OVER
 };
-
-
 
 int listenSock,
     connectSock, n;
@@ -202,37 +201,37 @@ void powerSupply(command cmd)
     t_deviceInfo equipInfo;
     int voltage, mode;
     char response[100];
-    key_t key1, key2;
-    int msgId1, msgId2;
+    key_t key1, key2, key3;
+    int msgId1, msgId2, msgId3;
 
     // ftok to generate unique key
-    key1 = ftok("keyfile", 3993); // for elePowerCtrl
+    key1 = ftok("keyfile", 3993); // to elePowerCtrl
     key2 = ftok("keyfile", 9339); // for powerSupplyInfoAccess
+    key3 = ftok("keyfile", 6996); // from elePowerCtrl
+
     // msgget creates a message queue
     // and returns identifier
     msgId1 = msgget(key1, 0666 | IPC_CREAT);
     msgId2 = msgget(key2, 0666 | IPC_CREAT);
+    msgId3 = msgget(key3, 0666 | IPC_CREAT);
 
     if (strcmp(cmd.code, "STOP") == 0)
     {
         //mode = elePowerCtrl(deviceId, OFF);
-        sprintf(message1.mesg_text, "%d|%d|", deviceId, OFF);
+        sprintf(message1.mesg_text, "%d|%s|", deviceId, "OFF");
 
         // msgsnd to send message
-        msgsnd(msgid1, &message1, sizeof(message1), 0);
+        msgsnd(msgId1, &message1, sizeof(message1), 0);
         // *shm = *shm - currentVoltage;
         // currentVoltage = 0;
         // sprintf(shm2, "%s|%s|%s|", cmd.params[0], "STOP", "0");
     }
     else
     {
-        if(strcmp(cmd.params[1]) == "NORMAL") mode = NORMAL;
-        else if(strcmp(cmd.params[1]) == "SAVING") mode = SAVING;
-
-        sprintf(message1.mesg_text, "%d|%d|", deviceId, mode);
+        sprintf(message1.mesg_text, "%d|%s|", deviceId, cmd.params[1]);
 
         // msgsnd to send message
-        msgsnd(msgid1, &message1, sizeof(message1), 0);
+        msgsnd(msgId1, &message1, sizeof(message1), 0);
 
         //sprintf(, "%s|%s|%s|", cmd.params[0], cmd.params[1], cmd.params[2]);
         // currentVoltage = atoi(cmd.params[2]);
@@ -240,49 +239,4 @@ void powerSupply(command cmd)
     }
 
     //send(connectSock, KEY, 4, 0);
-}
-
-int elePowerCtrl(int deviceID, int requestedMode)
-{
-    key_t key1, key2;
-    int msgId1, msgId2;
-
-    // ftok to generate unique key
-    key1 = ftok("keyfile", 3993);
-    key2 = ftok("keyfile", 9339);
-    // msgget creates a message queue
-    // and returns identifier
-    msgId1 = msgget(key1, 0666 | IPC_CREAT);
-    msgId2 = msgget(key2, 0666 | IPC_CREAT);
-
-    t_systemInfo sysInfo;
-    t_deviceInfo equipInfo;
-
-    sysInfo = (t_systemInfo *)powSupplyInfoAccess(T_READ, T_SYSTEM, NULL);
-    equipInfo = (t_deviceInfo *)powSupplyInfoAccess(T_READ, T_DEVICE, (void *)&deviceID);
-    switch (requestedMode)
-    {
-    case OFF:
-        deviceMode = OFF;
-        return deviceMode;
-        break;
-    case NORMAL:
-
-        break;
-    case SAVING:
-        break;
-    }
-}
-
-// tra ve key cho tien trinh goi de truy cap vao vung nho dung chung
-key_t powSupplyInfoAccess(int accessMode, int infoType, void *params)
-{
-    if (infoType == T_SYSTEM)
-    {
-    }
-    else if (infoType == T_DEVICE)
-    {
-    }
-    else
-        return -1;
 }
