@@ -152,7 +152,7 @@ int main()
                 else if (strcmp(requestedMode, "SAVING") == 0)
                     requestedSupply = equipInfo.savingVoltage;
             }
-
+            
             if (strcmp(requestedMode, equipInfo.status) == 0)
             {
                 memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
@@ -187,7 +187,7 @@ int main()
                                 equipInfo.currentSupply = 0;
                                 // send message to powerSupply
                                 memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
-                                sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
+                                sprintf(message3.mesg_text, "%s|%d|%s|", "OVER", equipInfo.currentSupply, equipInfo.status);
 
                                 // log
                             }
@@ -231,7 +231,7 @@ int main()
                         memset(systemInfo.status, 0, sizeof(systemInfo.status));
                         strcpy(systemInfo.status, "WARNING");
                     }else{
-                        // set system to WARNING state
+                        // set system to NORMAL state
                         memset(systemInfo.status, 0, sizeof(systemInfo.status));
                         strcpy(systemInfo.status, "NORMAL");
                     }

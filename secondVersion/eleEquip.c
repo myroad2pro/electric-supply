@@ -20,7 +20,12 @@ typedef struct
 	int savingMode;
 } device;
 
-enum mode{NORMAL, SAVING};
+enum mode
+{
+	OFF,
+	NORMAL,
+	SAVING
+};
 
 device *deviceList;
 int N;
@@ -29,10 +34,8 @@ char serverResponse[MAXLINE];
 int *shm;
 char *shm2;
 char info[1000];
-char systemInfo[1000];
-int threshold;
-int maxThreshold;
-int maxDevice;
+char systemStatus[10], equipStatus[10];
+
 int kbhit();
 int getch();
 void showMenuDevices();
@@ -91,12 +94,12 @@ void showMenuDevices()
 		printf("Please choose type of device to connect\n\n");
 		int i;
 		printf("1. TV\n");
-        printf("2. AR\n");
-        printf("3. PC\n");
-        printf("4. IRON\n");
-        printf("5. LIGHT\n");
-		printf("0. Quit\n\n");
-        printf("-----------------\n");
+		printf("2. AR\n");
+		printf("3. PC\n");
+		printf("4. IRON\n");
+		printf("5. LIGHT\n");
+		printf("6. Quit\n\n");
+		printf("-----------------\n");
 		printf("Your choice: \n");
 		while (choice == 0)
 		{
@@ -104,7 +107,7 @@ void showMenuDevices()
 			{
 				choice = 0;
 			}
-			if (choice < 1 || choice > 5)
+			if (choice < 1 || choice > 6)
 			{
 				choice = 0;
 				printf("Invalid choice!\n");
@@ -113,7 +116,7 @@ void showMenuDevices()
 			while ((c = getchar()) != '\n')
 				;
 		}
-		if (1 <= choice && choice <= N)
+		if (1 <= choice && choice <= 6)
 		{
 			showMenuAction(choice);
 		}
@@ -131,7 +134,6 @@ void showMenuAction(int deviceID)
 	while (1)
 	{
 		choice = 0;
-		printf("-----Welcome-----\n");
 		printf("Please choose an action:\n");
 		printf("1. Run at default mode \n");
 		printf("2. Run at saving mode\n");
@@ -162,7 +164,7 @@ void showMenuAction(int deviceID)
 			runDevice(deviceID - 1, SAVING);
 			break;
 		default:
-			exit(0);
+			runDevice(deviceID - 1, OFF);
 		}
 	}
 }
@@ -216,77 +218,73 @@ void makeCommand(char *command, char *code, char *param1, char *param2)
 	}
 }
 
-void getShareMemoryPointer(char *key_from_server)
-{
-	int shmid;
-	key_t key;
-	key = atoi(key_from_server);
-
-	if ((shmid = shmget(key, SHMSZ, 0666)) < 0)
-	{
-		perror("shmget");
-		exit(1);
-	}
-
-	if ((shm = shmat(shmid, NULL, 0)) == (int *)-1)
-	{
-		perror("shmat");
-		exit(1);
-	}
-}
-
-void getInfo(char *key_from_server)
-{
-	int shmid;
-	key_t key;
-	key = atoi(key_from_server);
-
-	if ((shmid = shmget(key, 1000, 0666)) < 0)
-	{
-		perror("shmget");
-		exit(1);
-	}
-
-	if ((shm2 = shmat(shmid, NULL, 0)) == (char *)-1)
-	{
-		perror("shmat");
-		exit(1);
-	}
-}
-
-void runDevice(int deviceID, int isSaving)
+void runDevice(int deviceID, int mode)
 {
 	char command[100];
-	char response[100];
+	char response[MAXLINE];
 	char buffer[20];
 	char param[20];
-	int countDown;
+	int countDown = 10;
 	char deviceName[100];
-    sprintf(deviceName, "%d", deviceID);
+	char *token;
+	sprintf(deviceName, "%d", deviceID);
 	int voltage;
-	if (isSaving)
+
+	switch (mode)
 	{
+	case OFF:
+		strcat(deviceName, "|OFF|");
+		break;
+	case NORMAL:
+		strcat(deviceName, "|NORMAL|");
+		break;
+	case SAVING:
 		strcat(deviceName, "|SAVING|");
+		break;
+	default:
+		break;
+	}
+
+	if (mode == OFF)
+	{
+		stopDevice(deviceName);
+	}
+	else if (mode == NORMAL || mode == SAVING)
+	{
+		makeCommand(command, "ON", deviceName, buffer);
+		send(clientSocket, command, strlen(command), 0);
+		getResponse();
+	}
+
+	memset(response, 0, sizeof(response));
+	strcpy(response, serverResponse);
+	token = strtok(response, "|");
+	strcpy(systemStatus, token);
+	token = strtok(NULL, "|");
+	voltage = atoi(token);
+	token = strtok(NULL, "|");
+	strcpy(equipStatus, token);
+
+	if (strcmp(systemStatus, "OVER") == 0)
+	{
+		if (strcmp(equipStatus, "OFF") == 0)
+		{
+			while (countDown > 0)
+			{
+				printf("System is overloaded.\nThe device will be turn off in %d seconds.\n", countDown);
+				countDown--;
+				if (countDown == 0)
+				{
+					stopDevice(deviceName);
+					break;
+				}
+			}
+		}
 	}
 	else
 	{
-		strcat(deviceName, "|NORMAL|");
+		printf("System is %s.\nThe current device is running %s mode at %d W\n", systemStatus, equipStatus, voltage);
 	}
-	makeCommand(command, "ON", deviceName, buffer);
-	send(clientSocket, command, strlen(command), 0);
-	getResponse();
-	// getShareMemoryPointer(serverResponse);
-	// int *currentDevice = shm + 1;
-	// if (*currentDevice <= maxDevice)
-	// {
-	// 	*currentDevice++;
-	// }
-	// else
-	// {
-	// 	printf("Max device is %d\n", maxDevice);
-	// 	exit(0);
-	// }
-	// countDown = 10;
 	// while (1)
 	// {
 	// 	if (*shm <= threshold)
@@ -301,11 +299,7 @@ void runDevice(int deviceID, int isSaving)
 	// 	{
 	// 		printf("Maximum threshold is exceeded. A device will be turn off in %d\n", countDown);
 	// 		countDown--;
-	// 		if (countDown < 0)
-	// 		{
-	// 			stopDevice(deviceName);
-	// 			break;
-	// 		}
+	//
 	// 	}
 
 	// 	if (kbhit())
