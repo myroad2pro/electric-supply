@@ -49,23 +49,28 @@ int main()
     int deviceID;
     FILE *fp = NULL;
     char messageBuffer[100] = "", infoBuffer[100] = "";
-    char *infoToken, *messageToken;;
+    char *infoToken, *messageToken;
     t_systemInfo systemInfo;
     t_deviceInfo deviceInfo;
+    long msgtype = 1;
 
     // ftok to generate unique key
     key1 = ftok("keyfile", 3993); // for elePowerCtrl
     key2 = ftok("keyfile", 9339); // for powerSupplyInfoAccess
+    printf("Success: Getting message queue keys %d %d\n\n", key1, key2);
+
     // msgget creates a message queue
     // and returns identifier
     msgId1 = msgget(key1, 0666 | IPC_CREAT);
     msgId2 = msgget(key2, 0666 | IPC_CREAT);
+    printf("Success: Getting message ID %d %d\n\n", msgId1, msgId2);
 
     while (1)
     {
         // msgrcv to receive message
         if (msgrcv(msgId2, &message2, sizeof(message2), 1, 0) != -1)
         {
+            printf("Success: Received Message from Power Control\n\n");
             int accessType, infoType;
 
             strcpy(messageBuffer, message2.mesg_text);
@@ -73,36 +78,48 @@ int main()
             accessType = atoi(messageToken);
             messageToken = strtok(NULL, "|");
             infoType = atoi(messageToken);
+            printf("Access Type: %d - info type: %d\n\n", accessType, infoType);
 
             if (accessType == T_READ)
             {
                 if (infoType == T_SYSTEM)
                 {
-                    fp = fopen("sysInfo", "r");
+                    printf("Pending: Opening System Info for READING...\n\n");
+                    if((fp = fopen("./sysInfo", "r")) != NULL) printf("Success: Opening System Info for READING\n\n");
+                    else{
+                        perror(NULL);
+                        exit(-1);
+                    }
                     memset(infoBuffer, 0, sizeof(infoBuffer));
                     fgets(infoBuffer, 100, fp);
-
+                    
+                    printf("%s\n", infoBuffer);
                     memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
                     strcpy(message2.mesg_text, infoBuffer);
-                    msgsnd(msgId2, &message2, sizeof(message2), 0);
+                    message2.mesg_type = msgtype;
+                    msgsnd(msgId2, &message2, sizeof(message2.mesg_text), 0);
                     fclose(fp);
                     fp = NULL;
                 }
                 else if (infoType == T_DEVICE)
                 {
+                    printf("Opening Equip Info for READING...\n\n");
                     messageToken = strtok(NULL, "|");
                     deviceID = atoi(messageToken);
-                    fp = fopen("deviceInfo", "r");
+                    fp = fopen("./deviceInfo", "r");
                     int i;
                     for (i = 0; i <= deviceID; i++)
                     {
                         memset(infoBuffer, 0, sizeof(infoBuffer));
                         fgets(infoBuffer, 100, fp);
+                        printf("%s\n", infoBuffer);
                     }
 
                     memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
                     strcpy(message2.mesg_text, infoBuffer);
-                    msgsnd(msgId2, &message2, sizeof(message2), 0);
+                    message2.mesg_type = msgtype;
+                    msgsnd(msgId2, &message2, sizeof(message2.mesg_text), 0);
+                    printf("Success: Sending Message to Power Control\n\n");
                     fclose(fp);
                     fp = NULL;
                 }
@@ -118,7 +135,7 @@ int main()
                     strcpy(systemInfo.status, messageToken);
 
                     // read from systemInfo
-                    fp = fopen("sysInfo", "r");
+                    fp = fopen("./sysInfo", "r");
                     memset(infoBuffer, 0, sizeof(infoBuffer));
                     fgets(infoBuffer, 100, fp);
                     // extract info
@@ -127,8 +144,9 @@ int main()
                     infoToken = strtok(NULL, "|");
                     systemInfo.maxThreshold = atoi(infoToken);
                     // reopen
-                    freopen("sysInfo", "w", fp);
+                    freopen("./sysInfo", "w", fp);
                     fprintf(fp, "%d|%d|%d|%s|", systemInfo.warningThreshold, systemInfo.maxThreshold, systemInfo.currentSupply, systemInfo.status);
+                    printf("Success: Writing to System Info\n\n");
                     fclose(fp);
                     fp = NULL;
                 }
@@ -143,8 +161,8 @@ int main()
                     strcpy(deviceInfo.status, messageToken);
 
                     // copy contents from deviceInfo to temp
-                    FILE *fin = fopen("deviceInfo", "r");
-                    FILE *fout = fopen("temp", "w");
+                    FILE *fin = fopen("./deviceInfo", "r");
+                    FILE *fout = fopen("./temp", "w");
                     int lineNo = 0;
                     while (!feof(fin))
                     {
@@ -152,7 +170,7 @@ int main()
                         fgets(infoBuffer, 100, fin);
 
                         if (lineNo == deviceID)
-                        {   
+                        {
                             char deviceName[100];
                             infoToken = strtok(infoBuffer, "|");
                             strcpy(deviceName, infoToken);
@@ -161,7 +179,9 @@ int main()
                             infoToken = strtok(NULL, "|");
                             deviceInfo.savingVoltage = atoi(infoToken);
                             fprintf(fout, "%s|%d|%d|%s|\n", deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, deviceInfo.status);
-                        }else{
+                        }
+                        else
+                        {
                             fprintf(fout, "%s", infoBuffer);
                         }
                         lineNo++;
@@ -170,13 +190,12 @@ int main()
                     fin = NULL;
                     fclose(fout);
                     fout = NULL;
-                    remove("deviceInfo");
-                    rename("temp", "deviceInfo");
+                    remove("./deviceInfo");
+                    rename("./temp", "./deviceInfo");
+                    printf("Success: Writing to Device Info\n\n");
                 }
             }
-            free(messageToken);
             messageToken = NULL;
-            free(infoToken);
             infoToken = NULL;
         }
     }

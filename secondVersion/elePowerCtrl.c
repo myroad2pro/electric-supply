@@ -59,26 +59,32 @@ enum t_systemStatus
 
 int main()
 {
+    printf("Starting...\n");
     key_t key1, key2, key3;
     int msgId1, msgId2, msgId3;
     char messageBuffer[100] = "", infoBuffer[100] = "";
     char *infoToken;
+    long msgtype = 1;
 
     // ftok to generate unique key
     key1 = ftok("keyfile", 3993); // to elePowerCtrl
     key2 = ftok("keyfile", 9339); // for powerSupplyInfoAccess
     key3 = ftok("keyfile", 6996); // from elePowerCtrl
+    printf("Success: Getting message queue keys %d %d %d\n", key1, key2, key3);
+    
     // msgget creates a message queue
     // and returns identifier
     msgId1 = msgget(key1, 0666 | IPC_CREAT);
     msgId2 = msgget(key2, 0666 | IPC_CREAT);
     msgId3 = msgget(key3, 0666 | IPC_CREAT);
+    printf("Success: Getting message ID %d %d %d\n", msgId1, msgId2, msgId3);
 
     while (1)
     {
         // msgrcv to receive message
         if (msgrcv(msgId1, &message1, sizeof(message1), 1, 0) != -1)
         {
+            printf("Success: Received Message from Connect Manager...\n");
             int deviceID, requestedSupply;
             char requestedMode[10];
             t_systemInfo systemInfo;
@@ -94,14 +100,18 @@ int main()
             strcpy(requestedMode, token);
 
             // request to get SystemInfo
+            printf("Pending: Getting System Info...\n");
             sprintf(message2.mesg_text, "%d|%d|", T_READ, T_SYSTEM);
+            message2.mesg_type = msgtype;
             // msgsnd to send message
-            msgsnd(msgId2, &message2, sizeof(message2), 0);
+            msgsnd(msgId2, &message2, sizeof(message2.mesg_text), 0);
+            printf("Success: Sending Message to Power Supply Info Access...\n");
 
             // receive systemInfo
             memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
             if (msgrcv(msgId2, &message2, sizeof(message2), 1, 0) != -1)
             {
+                printf("Success: Received Message from Power Supply Info Access...\n");
                 memset(infoBuffer, 0, sizeof(infoBuffer));
                 strcpy(infoBuffer, message2.mesg_text);
                 // extract info
@@ -116,14 +126,18 @@ int main()
             }
 
             // request to get deviceInfo
+            printf("Pending: Getting System Info...\n");
             sprintf(message2.mesg_text, "%d|%d|%d|", T_READ, T_DEVICE, deviceID);
+            message2.mesg_type = msgtype;
             // msgsnd to send message
-            msgsnd(msgId2, &message2, sizeof(message2), 0);
+            msgsnd(msgId2, &message2, sizeof(message2.mesg_text), 0);
+            printf("Success: Sending Message to Power Supply Info Access...\n");
 
             // receive deviceInfo
             memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
             if (msgrcv(msgId2, &message2, sizeof(message2), 1, 0) != -1)
             {
+                printf("Success: Received Message from Power Supply Info Access...\n");
                 memset(infoBuffer, 0, sizeof(infoBuffer));
                 strcpy(infoBuffer, message2.mesg_text);
                 // extract info
@@ -156,9 +170,11 @@ int main()
             if (strcmp(requestedMode, equipInfo.status) == 0)
             {
                 memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
+                message3.mesg_type = msgtype;
                 sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
                 // send message to powerSupply
-                msgsnd(msgId3, &message3, sizeof(message3), 0);
+                msgsnd(msgId3, &message3, sizeof(message3.mesg_text), 0);
+                printf("Success: Sending Message to Power Supply...\n");
             }
             else
             {
@@ -172,9 +188,11 @@ int main()
                         {
                             // nothing happens
                             memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
+                            message3.mesg_type = msgtype;
                             sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
                             // send message to powerSupply
                             msgsnd(msgId3, &message3, sizeof(message3), 0);
+                            printf("Success: Sending Message to Power Supply...\n");
                         }
                         else // request: off -> normal
                         {
@@ -187,8 +205,10 @@ int main()
                                 equipInfo.currentSupply = 0;
                                 // send message to powerSupply
                                 memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
+                                message3.mesg_type = msgtype;
                                 sprintf(message3.mesg_text, "%s|%d|%s|", "OVER", equipInfo.currentSupply, equipInfo.status);
-
+                                msgsnd(msgId3, &message3, sizeof(message3), 0);
+                                printf("Success: Sending Message to Power Supply...\n");
                                 // log
                             }
                             else if (modifiedSupply >= systemInfo.warningThreshold)
@@ -201,14 +221,21 @@ int main()
                                 strcpy(equipInfo.status, "SAVING");
                                 equipInfo.currentSupply = equipInfo.savingVoltage;
                                 // send message to powerSupplyInfoAccess to write SystemInfo
+                                message2.mesg_type = msgtype;
                                 sprintf(message2.mesg_text, "%d|%d|%d|%s|", T_WRITE, T_SYSTEM, modifiedSupply, systemInfo.status);
                                 msgsnd(msgId2, &message2, sizeof(message2), 0);
+                                printf("Success: Sending Message to Power Supply Info Access...\n");
                                 // send message to powerSupplyInfoAccess to write deviceInfo
+                                message2.mesg_type = msgtype;
                                 sprintf(message2.mesg_text, "%d|%d|%d|%d|%s|", T_WRITE, T_DEVICE, deviceID, equipInfo.currentSupply, equipInfo.status);
                                 msgsnd(msgId2, &message2, sizeof(message2), 0);
+                                printf("Success: Sending Message to Power Supply Info Access...\n");
                                 // send message to powerSupply
                                 memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
+                                message3.mesg_type = msgtype;
                                 sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
+                                msgsnd(msgId3, &message3, sizeof(message3), 0);
+                                printf("Success: Sending Message to Power Supply...\n");
                                 // log
                             }
                         }
@@ -218,6 +245,7 @@ int main()
                         // request: off -> saving
                         // nothing happens
                         memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
+                        message3.mesg_type = msgtype;
                         sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
                         // send message to powerSupply
                         msgsnd(msgId3, &message3, sizeof(message3), 0);
@@ -230,10 +258,12 @@ int main()
                         // set system to WARNING state
                         memset(systemInfo.status, 0, sizeof(systemInfo.status));
                         strcpy(systemInfo.status, "WARNING");
+                        printf("System: WARNING\n");
                     }else{
                         // set system to NORMAL state
                         memset(systemInfo.status, 0, sizeof(systemInfo.status));
                         strcpy(systemInfo.status, "NORMAL");
+                        printf("System: NORMAL\n");
                     }
 
                     // set device's current supply to requested supply
@@ -241,13 +271,17 @@ int main()
                     strcpy(equipInfo.status, requestedMode);
                     // send message to powerSupplyInfoAccess to write SystemInfo
                     sprintf(message2.mesg_text, "%d|%d|%d|%s|", T_WRITE, T_SYSTEM, predictedSupply, systemInfo.status);
-                    msgsnd(msgId2, &message2, sizeof(message2), 0);
+                    message2.mesg_type = msgtype;
+                    msgsnd(msgId2, &message2, sizeof(message2.mesg_text), 0);
                     // send message to powerSupplyInfoAccess to write deviceInfo
                     sprintf(message2.mesg_text, "%d|%d|%d|%d|%s|", T_WRITE, T_DEVICE, deviceID, equipInfo.currentSupply, equipInfo.status);
-                    msgsnd(msgId2, &message2, sizeof(message2), 0);
+                    message2.mesg_type = msgtype;
+                    msgsnd(msgId2, &message2, sizeof(message2.mesg_text), 0);
                     // send message to powerSupply
                     memset(message3.mesg_text, 0, sizeof(message3.mesg_text));
+                    message3.mesg_type = msgtype;
                     sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
+                    msgsnd(msgId3, &message3, sizeof(message3.mesg_text), 0);
                     // log
                 }
             }

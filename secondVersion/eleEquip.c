@@ -170,6 +170,7 @@ void showMenuAction(int deviceID)
 }
 void getResponse()
 {
+	memset(serverResponse, 0, sizeof(serverResponse));
 	int n = recv(clientSocket, serverResponse, MAXLINE, 0);
 	if (n == 0)
 	{
@@ -245,6 +246,7 @@ void runDevice(int deviceID, int mode)
 		break;
 	}
 
+	printf("Sending command to server...\n\n");
 	if (mode == OFF)
 	{
 		stopDevice(deviceName);
@@ -256,6 +258,7 @@ void runDevice(int deviceID, int mode)
 		getResponse();
 	}
 
+	printf("Succeed getting response from server");
 	memset(response, 0, sizeof(response));
 	strcpy(response, serverResponse);
 	token = strtok(response, "|");
@@ -272,6 +275,7 @@ void runDevice(int deviceID, int mode)
 			while (countDown > 0)
 			{
 				printf("System is overloaded.\nThe device will be turn off in %d seconds.\n", countDown);
+				sleep(1);
 				countDown--;
 				if (countDown == 0)
 				{
@@ -307,7 +311,7 @@ void runDevice(int deviceID, int mode)
 	// 		stopDevice(deviceName);
 	// 		break;
 	// 	}
-	// 	sleep(1);
+	// 	
 	// }
 }
 
@@ -317,64 +321,4 @@ void stopDevice(char *deviceName)
 	makeCommand(command, "STOP", deviceName, NULL);
 	send(clientSocket, command, strlen(command), 0);
 	getResponse();
-}
-
-int countEntityNumber(char *str)
-{
-	int i;
-	int count = 0;
-	for (i = 0; i < strlen(str); ++i)
-	{
-		if (str[i] == ',')
-		{
-			count++;
-		}
-	}
-	return count;
-}
-
-char **tokenizeString(char *str)
-{
-	int count = countEntityNumber(str);
-	char **tokenArray;
-	tokenArray = (char **)malloc(count * sizeof(char *));
-	char *dup = strdup(str);
-	char *token;
-	int i;
-	token = strtok(dup, ",");
-	tokenArray[0] = token;
-	for (i = 1; i < count; ++i)
-	{
-		tokenArray[i] = strtok(NULL, ",");
-	}
-	return tokenArray;
-}
-
-device parseStringToStruct(char *str)
-{
-	device hanhvl;
-	char *dup = strdup(str);
-	char *token;
-	int i;
-	token = strtok(dup, "|");
-	strcpy(hanhvl.name, token);
-	token = strtok(NULL, "|");
-	hanhvl.normalMode = atoi(strdup(token));
-	token = strtok(NULL, "|");
-	hanhvl.savingMode = atoi(strdup(token));
-	return hanhvl;
-}
-
-device *parseStringToStructArray(char *str)
-{
-	int count = countEntityNumber(str);
-	char *dup = strdup(str);
-	device *hanhvl;
-	hanhvl = (device *)malloc(count * sizeof(device));
-	int i;
-	for (i = 0; i < count; ++i)
-	{
-		hanhvl[i] = parseStringToStruct(tokenizeString(dup)[i]);
-	}
-	return hanhvl;
 }

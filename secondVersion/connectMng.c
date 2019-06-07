@@ -66,6 +66,8 @@ command cmd;
 char *shm2;
 t_systemInfo systemInfo;
 
+void powerSupply(command cmd);
+
 // lấy địa chỉ bộ nhớ dùng chung của log
 void getInfo(char *key_from_server)
 {
@@ -124,27 +126,28 @@ int main()
     key = atoi(KEY);
     int currentVoltage = 0;
 
-    // tạo bộ nhớ dùng chung
-    if ((shmid = shmget(key, 8, IPC_CREAT | 0666)) < 0)
-    {
-        perror("shmget");
-        exit(1);
-    }
+    // // tạo bộ nhớ dùng chung
+    // if ((shmid = shmget(key, 8, IPC_CREAT | 0666)) < 0)
+    // {
+    //     perror("shmget");
+    //     exit(1);
+    // }
 
-    // lấy địa chỉ bộ nhớ dùng chung
-    if ((shm = shmat(shmid, NULL, 0)) == (int *)-1)
-    {
-        perror("shmat");
-        exit(1);
-    }
+    // // lấy địa chỉ bộ nhớ dùng chung
+    // if ((shm = shmat(shmid, NULL, 0)) == (int *)-1)
+    // {
+    //     perror("shmat");
+    //     exit(1);
+    // }
 
-    *shm = 0;
-    int *currentDevice = shm + 1;
-    *currentDevice = 2;
-    getInfo("1111"); // sử dụng log của hệ thống
+    // *shm = 0;
+    // int *currentDevice = shm + 1;
+    // *currentDevice = 2;
+    // getInfo("1111"); // sử dụng log của hệ thống
 
     // connectMng
     // khởi tạo kết nối IP
+    printf("Creating IP connection...\n\n");
     if ((listenSock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         printf("Loi tao socket\n");
@@ -170,6 +173,7 @@ int main()
     // nhận kết nối từ client
     while (1)
     {
+        printf("Getting connection from client...\n\n");
         connectSock = accept(listenSock, (struct sockaddr *)&clientAddr, &clilen);
         // tạo tiến trình con
         if ((pid = fork()) == 0)
@@ -181,13 +185,15 @@ int main()
             {
                 request[n] = '\0';
                 cmd = convertRequestToCommand(request);
+                printf("Succeed getting command from client\n\n");
                 // phần dưới này chuyển sang powerSupply()
+                powerSupply(cmd);
             }
-            if (currentVoltage != 0)
-            {
-                *shm = *shm - currentVoltage;
-                currentVoltage = 0;
-            }
+            // if (currentVoltage != 0)
+            // {
+            //     *shm = *shm - currentVoltage;
+            //     currentVoltage = 0;
+            // }
 
             close(connectSock);
             exit(0);
@@ -206,36 +212,45 @@ void powerSupply(command cmd)
     char *infoToken;
     key_t key1, key2, key3;
     int msgId1, msgId2, msgId3;
+    long msgtype = 1;
 
     // ftok to generate unique key
     key1 = ftok("keyfile", 3993); // to elePowerCtrl
     key2 = ftok("keyfile", 9339); // for powerSupplyInfoAccess
     key3 = ftok("keyfile", 6996); // from elePowerCtrl
+    printf("Success: Getting message queue keys %d %d %d\n\n", key1, key2, key3);
 
     // msgget creates a message queue
     // and returns identifier
     msgId1 = msgget(key1, 0666 | IPC_CREAT);
     msgId2 = msgget(key2, 0666 | IPC_CREAT);
     msgId3 = msgget(key3, 0666 | IPC_CREAT);
+    printf("Success: Getting message ID %d %d %d\n\n", msgId1, msgId2, msgId3);
 
+    printf("Sending message to Power Control...\n\n");
     if (strcmp(cmd.code, "STOP") == 0)
     {
         //mode = elePowerCtrl(deviceId, OFF);
         sprintf(message1.mesg_text, "%d|%s|", deviceId, "OFF");
         // msgsnd to send message
-        msgsnd(msgId1, &message1, sizeof(message1), 0);
+        message1.mesg_type = msgtype;
+        if(msgsnd(msgId1, &message1, sizeof(message1.mesg_text), 0) == -1) printf("Failed: Sending message to Power Control...\n\n");
     }
     else
     {
         sprintf(message1.mesg_text, "%d|%s|", deviceId, cmd.params[1]);
         // msgsnd to send message
-        msgsnd(msgId1, &message1, sizeof(message1), 0);
+        message1.mesg_type = msgtype;
+        if(msgsnd(msgId1, &message1, sizeof(message1.mesg_text), 0) == -1) printf("Failed: Sending message to Power Control...\n\n");
     }
+
     if (msgrcv(msgId3, &message3, sizeof(message3), 1, 0) != -1)
     {
+        printf("Success: Getting message to Power Control...\n\n");
         memset(infoBuffer, 0, sizeof(infoBuffer));
         strcpy(infoBuffer, message3.mesg_text);
         send(connectSock, infoBuffer, sizeof(infoBuffer), 0);
+        printf("Success: Sending response to client ...\n\n");
     }
 
     //send(connectSock, KEY, 4, 0);
