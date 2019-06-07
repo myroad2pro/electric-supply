@@ -1,0 +1,23 @@
+thứ tự chạy: powerSupplyInfoAccess => elePowerCtrl => connectMng => eleEquip
+
+1. eleEquip: 
+- nếu người dùng không lựa chọn gì, mỗi 10s gửi 1 message tới connectMng để xác nhận trạng thái hệ thống.
+- nội dung: deviceID|MODE hiện tại|
+eleEquip |<------IP connection------>| connectMng
+
+2. connectMng: 
+- tạo kết nối IP
+- tạo tiến trình con powerSupply quản lý eleEquip
+- phân tích yêu cầu từ eleEquip và gửi message tới elePowerCtrl để yêu cầu thay đổi trạng thái của thiết bị.
+powerSupply |-------MessageQueue1-------->| elePowerCtrl
+powerSupply |<------MessageQueue3---------| elePowerCtrl
+- Sở dĩ phải dùng 2 MessageQueue để tránh message từ các powerSupply trên một kênh bị dồn ứ khiến message phản hồi phải đợi. 
+
+3. elePowerCtrl:
+- nhận message từ powerSupply và xử lý.
+
+- nếu vượt quá ngưỡng tối đa thì:
+    + chuyển trạng thái của tất cả thiết bị về SAVING bằng cách gửi thông điệp T_WRITE|T_DEVICE|deviceID|-1
+    + nhận tổng lượng điện tiêu thụ hiện tại của toàn hệ thống
+    + nếu dưới ngưỡng tối đa thì ghi lại trạng thái và lượng điện hiện tại của hệ thống.
+    + nếu vẫn trên ngưỡng thì chuyển trạng thái của tất cả thiết bị về OFF bằng cách gửi thông điệp T_WRITE|T_DEVICE|-1|-1, sau đó restart hệ thống.

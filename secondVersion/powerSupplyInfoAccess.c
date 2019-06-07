@@ -53,24 +53,29 @@ int main()
     t_systemInfo systemInfo;
     t_deviceInfo deviceInfo;
     long msgtype = 1;
+    int lineNo = 0;
+    int totalPower = 0;
 
     // ftok to generate unique key
     key1 = ftok("keyfile", 3993); // for elePowerCtrl
     key2 = ftok("keyfile", 9339); // for powerSupplyInfoAccess
-    printf("Success: Getting message queue keys %d %d\n\n", key1, key2);
+    printf("Success: Getting message queue keys %d %d\n", key1, key2);
 
     // msgget creates a message queue
     // and returns identifier
     msgId1 = msgget(key1, 0666 | IPC_CREAT);
     msgId2 = msgget(key2, 0666 | IPC_CREAT);
-    printf("Success: Getting message ID %d %d\n\n", msgId1, msgId2);
+    printf("Success: Getting message ID %d %d\n", msgId1, msgId2);
 
     while (1)
     {
+        printf("Waiting for Message...\n\n");
         // msgrcv to receive message
+        message2.mesg_type = msgtype;
+        memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
         if (msgrcv(msgId2, &message2, sizeof(message2), 1, 0) != -1)
         {
-            printf("Success: Received Message from Power Control\n\n");
+            printf("Success: Received Message %s from Power Control\n", message2.mesg_text);
             int accessType, infoType;
 
             strcpy(messageBuffer, message2.mesg_text);
@@ -78,21 +83,23 @@ int main()
             accessType = atoi(messageToken);
             messageToken = strtok(NULL, "|");
             infoType = atoi(messageToken);
-            printf("Access Type: %d - info type: %d\n\n", accessType, infoType);
+            printf("Access Type: %d - info type: %d\n", accessType, infoType);
 
             if (accessType == T_READ)
             {
                 if (infoType == T_SYSTEM)
                 {
-                    printf("Pending: Opening System Info for READING...\n\n");
-                    if((fp = fopen("./sysInfo", "r")) != NULL) printf("Success: Opening System Info for READING\n\n");
-                    else{
+                    printf("Pending: Opening System Info for READING...\n");
+                    if ((fp = fopen("./sysInfo", "r")) != NULL)
+                        printf("Success: Opening System Info for READING\n");
+                    else
+                    {
                         perror(NULL);
                         exit(-1);
                     }
                     memset(infoBuffer, 0, sizeof(infoBuffer));
                     fgets(infoBuffer, 100, fp);
-                    
+
                     printf("%s\n", infoBuffer);
                     memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
                     strcpy(message2.mesg_text, infoBuffer);
@@ -103,7 +110,7 @@ int main()
                 }
                 else if (infoType == T_DEVICE)
                 {
-                    printf("Opening Equip Info for READING...\n\n");
+                    printf("Opening Equip Info for READING...\n");
                     messageToken = strtok(NULL, "|");
                     deviceID = atoi(messageToken);
                     fp = fopen("./deviceInfo", "r");
@@ -112,7 +119,7 @@ int main()
                     {
                         memset(infoBuffer, 0, sizeof(infoBuffer));
                         fgets(infoBuffer, 100, fp);
-                        printf("%s\n", infoBuffer);
+                        printf("%s", infoBuffer);
                     }
 
                     memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
@@ -146,7 +153,7 @@ int main()
                     // reopen
                     freopen("./sysInfo", "w", fp);
                     fprintf(fp, "%d|%d|%d|%s|", systemInfo.warningThreshold, systemInfo.maxThreshold, systemInfo.currentSupply, systemInfo.status);
-                    printf("Success: Writing to System Info\n\n");
+                    printf("Success: Writing to System Info\n");
                     fclose(fp);
                     fp = NULL;
                 }
@@ -155,22 +162,23 @@ int main()
                     // read from message
                     messageToken = strtok(NULL, "|");
                     deviceID = atoi(messageToken);
+                    printf("%s", infoBuffer);
+
                     messageToken = strtok(NULL, "|");
                     deviceInfo.currentSupply = atoi(messageToken);
-                    messageToken = strtok(NULL, "|");
-                    strcpy(deviceInfo.status, messageToken);
-
-                    // copy contents from deviceInfo to temp
-                    FILE *fin = fopen("./deviceInfo", "r");
-                    FILE *fout = fopen("./temp", "w");
-                    int lineNo = 0;
-                    while (!feof(fin))
+                    // printf("Device ID: %d - Current Supply: %d\n", deviceID, deviceInfo.currentSupply);
+                    if (deviceInfo.currentSupply == -1) // OVERLOAD, reduce every device to SAVING
                     {
-                        memset(infoBuffer, 0, sizeof(infoBuffer));
-                        fgets(infoBuffer, 100, fin);
-
-                        if (lineNo == deviceID)
+                        printf("System is OVERLOADED\n");
+                        FILE *fin = fopen("./deviceInfo", "r");
+                        FILE *fout = fopen("./temp", "w");
+                        lineNo = 0;
+                        totalPower = 0;
+                        while (!feof(fin))
                         {
+                            memset(infoBuffer, 0, sizeof(infoBuffer));
+                            fgets(infoBuffer, 100, fin);
+
                             char deviceName[100];
                             infoToken = strtok(infoBuffer, "|");
                             strcpy(deviceName, infoToken);
@@ -178,21 +186,77 @@ int main()
                             deviceInfo.normalVoltage = atoi(infoToken);
                             infoToken = strtok(NULL, "|");
                             deviceInfo.savingVoltage = atoi(infoToken);
-                            fprintf(fout, "%s|%d|%d|%s|\n", deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, deviceInfo.status);
+                            infoToken = strtok(NULL, "|");
+                            memset(deviceInfo.status, 0, sizeof(deviceInfo.status));
+                            strcpy(deviceInfo.status, infoToken);
+                            if (lineNo == deviceID || (strcmp(deviceInfo.status, "OFF") != 0))
+                            {
+
+                                fprintf(fout, "%s|%d|%d|%s|\n", deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, "SAVING");
+                                totalPower += deviceInfo.savingVoltage;
+                            }
+                            else
+                            {
+                                fprintf(fout, "%s|%d|%d|%s|\n", deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, "OFF");
+                            }
+                            lineNo++;
+                            infoToken = NULL;
                         }
-                        else
-                        {
-                            fprintf(fout, "%s", infoBuffer);
-                        }
-                        lineNo++;
+                        fclose(fin);
+                        fin = NULL;
+                        fclose(fout);
+                        fout = NULL;
+                        remove("./deviceInfo");
+                        rename("./temp", "./deviceInfo");
+                        printf("Success: Reduce Device Voltage to SAVING mode\n\n");
+
+                        // sending total power to Power Control
+                        memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
+                        message2.mesg_type = msgtype;
+                        sprintf(message2.mesg_text, "%d|", totalPower);
+                        msgsnd(msgId2, &message2, sizeof(message2.mesg_text), 0);
+                        printf("Success: Sending Total Saving Power to Power Control\n\n");
                     }
-                    fclose(fin);
-                    fin = NULL;
-                    fclose(fout);
-                    fout = NULL;
-                    remove("./deviceInfo");
-                    rename("./temp", "./deviceInfo");
-                    printf("Success: Writing to Device Info\n\n");
+                    else
+                    {
+
+                        messageToken = strtok(NULL, "|");
+                        strcpy(deviceInfo.status, messageToken);
+
+                        // copy contents from deviceInfo to temp
+                        FILE *fin = fopen("./deviceInfo", "r");
+                        FILE *fout = fopen("./temp", "w");
+                        lineNo = 0;
+                        while (!feof(fin))
+                        {
+                            memset(infoBuffer, 0, sizeof(infoBuffer));
+                            fgets(infoBuffer, 100, fin);
+
+                            if (lineNo == deviceID)
+                            {
+                                char deviceName[100];
+                                infoToken = strtok(infoBuffer, "|");
+                                strcpy(deviceName, infoToken);
+                                infoToken = strtok(NULL, "|");
+                                deviceInfo.normalVoltage = atoi(infoToken);
+                                infoToken = strtok(NULL, "|");
+                                deviceInfo.savingVoltage = atoi(infoToken);
+                                fprintf(fout, "%s|%d|%d|%s|\n", deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, deviceInfo.status);
+                            }
+                            else
+                            {
+                                fprintf(fout, "%s", infoBuffer);
+                            }
+                            lineNo++;
+                        }
+                        fclose(fin);
+                        fin = NULL;
+                        fclose(fout);
+                        fout = NULL;
+                        remove("./deviceInfo");
+                        rename("./temp", "./deviceInfo");
+                        printf("Success: Writing to Device Info\n\n");
+                    }
                 }
             }
             messageToken = NULL;

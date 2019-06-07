@@ -43,14 +43,8 @@ void showMenu();
 void getResponse();
 void makeCommand(char *command, char *code, char *param1, char *param2);
 void showMenuAction(int deviceID);
-void getShareMemoryPointer(char *key_from_server);
-void runDevice(int deviceID, int isSaving);
+int runDevice(int deviceID, int isSaving);
 void stopDevice(char *deviceName);
-void getInfo(char *key_from_server);
-int countEntityNumber(char *str);
-char **tokenizeString(char *str);
-device parseStringToStruct(char *str);
-device *parseStringToStructArray(char *str);
 
 int main()
 {
@@ -116,7 +110,7 @@ void showMenuDevices()
 			while ((c = getchar()) != '\n')
 				;
 		}
-		if (1 <= choice && choice <= 6)
+		if (1 <= choice && choice <= 5)
 		{
 			showMenuAction(choice);
 		}
@@ -129,42 +123,56 @@ void showMenuDevices()
 
 void showMenuAction(int deviceID)
 {
-	int choice;
+	int choice = 0;
 	char c;
+	int mode = OFF;
+	// first get system status
+	mode = runDevice(deviceID - 1, mode);
 	while (1)
 	{
 		choice = 0;
-		printf("Please choose an action:\n");
-		printf("1. Run at default mode \n");
-		printf("2. Run at saving mode\n");
-		printf("3. Turn off and quit\n");
-		printf("Your choice: ");
 		while (choice == 0)
 		{
-			if (scanf("%d", &choice) < 1)
+			printf("Please choose an action:\n");
+			printf("1. Run at default mode \n");
+			printf("2. Run at saving mode\n");
+			printf("3. Turn off and quit\n");
+			printf("Your choice: ");
+			if (kbhit())
 			{
+				c = getch();
+				choice = c - '0';
+				if (choice < 1 || choice > 4)
+				{
+					choice = 0;
+					printf("Invalid choice: %d!\n", choice);
+					printf("Enter again: ");
+				}
+			}
+			else
+			{
+				mode = runDevice(deviceID - 1, mode);
 				choice = 0;
 			}
-			if (choice < 1 || choice > 4)
-			{
-				choice = 0;
-				printf("Invalid choice!\n");
-				printf("Enter again: ");
-			}
-			while ((c = getchar()) != '\n')
-				;
+			// if (scanf("%d", &choice) < 1)
+			// {
+			// 	choice = 0;
+			// }
+
+			// while ((c = getchar()) != '\n');
 		}
 
 		switch (choice)
 		{
 		case 1:
-			runDevice(deviceID - 1, NORMAL);
+			mode = runDevice(deviceID - 1, NORMAL);
 			break;
 		case 2:
-			runDevice(deviceID - 1, SAVING);
+			mode = runDevice(deviceID - 1, SAVING);
 			break;
 		default:
-			runDevice(deviceID - 1, OFF);
+			mode = runDevice(deviceID - 1, OFF);
+			exit(0);
 		}
 	}
 }
@@ -174,33 +182,10 @@ void getResponse()
 	int n = recv(clientSocket, serverResponse, MAXLINE, 0);
 	if (n == 0)
 	{
-		perror("The server terminated prematurely");
+		perror("The server terminated prematurely\n\n");
 		exit(4);
 	}
 	serverResponse[n] = '\0';
-}
-
-int kbhit()
-{
-	struct timeval tv = {0L, 0L};
-	fd_set fds;
-	FD_ZERO(&fds);
-	FD_SET(0, &fds);
-	return select(1, &fds, NULL, NULL, &tv);
-}
-
-int getch()
-{
-	int r;
-	unsigned char c;
-	if ((r = read(0, &c, sizeof(c))) < 0)
-	{
-		return r;
-	}
-	else
-	{
-		return c;
-	}
 }
 
 void makeCommand(char *command, char *code, char *param1, char *param2)
@@ -219,7 +204,7 @@ void makeCommand(char *command, char *code, char *param1, char *param2)
 	}
 }
 
-void runDevice(int deviceID, int mode)
+int runDevice(int deviceID, int mode)
 {
 	char command[100];
 	char response[MAXLINE];
@@ -246,7 +231,7 @@ void runDevice(int deviceID, int mode)
 		break;
 	}
 
-	printf("Sending command to server...\n\n");
+	printf("Sending command mode %d to server...\n\n", mode);
 	if (mode == OFF)
 	{
 		stopDevice(deviceName);
@@ -258,7 +243,7 @@ void runDevice(int deviceID, int mode)
 		getResponse();
 	}
 
-	printf("Succeed getting response from server");
+	printf("Succeed getting response from server\n");
 	memset(response, 0, sizeof(response));
 	strcpy(response, serverResponse);
 	token = strtok(response, "|");
@@ -280,15 +265,30 @@ void runDevice(int deviceID, int mode)
 				if (countDown == 0)
 				{
 					stopDevice(deviceName);
-					break;
+					return OFF;
 				}
 			}
+		}
+		else if (strcmp(equipStatus, "SAVING") == 0)
+		{
+			printf("System is overloaded.\nThe device will run at %s mode.\n", equipStatus);
 		}
 	}
 	else
 	{
 		printf("System is %s.\nThe current device is running %s mode at %d W\n", systemStatus, equipStatus, voltage);
 	}
+
+	if (strcmp(equipStatus, "NORMAL") == 0)
+	{
+		return NORMAL;
+	}
+	else if (strcmp(equipStatus, "SAVING") == 0)
+	{
+		return SAVING;
+	}
+	else
+		return OFF;
 	// while (1)
 	// {
 	// 	if (*shm <= threshold)
@@ -311,7 +311,7 @@ void runDevice(int deviceID, int mode)
 	// 		stopDevice(deviceName);
 	// 		break;
 	// 	}
-	// 	
+	//
 	// }
 }
 
@@ -321,4 +321,27 @@ void stopDevice(char *deviceName)
 	makeCommand(command, "STOP", deviceName, NULL);
 	send(clientSocket, command, strlen(command), 0);
 	getResponse();
+}
+
+int kbhit()
+{
+	struct timeval tv = {10L, 0L};
+	fd_set fds;
+	FD_ZERO(&fds);
+	FD_SET(0, &fds);
+	return select(1, &fds, NULL, NULL, &tv);
+}
+
+int getch()
+{
+	int r;
+	unsigned char c;
+	if ((r = read(0, &c, sizeof(c))) < 0)
+	{
+		return r;
+	}
+	else
+	{
+		return c;
+	}
 }
