@@ -16,7 +16,7 @@ struct mesg_buffer
 {
     long mesg_type;
     char mesg_text[100];
-} message1, message2;
+} message1, message2, message3, message4;
 
 typedef struct
 {
@@ -44,8 +44,8 @@ enum t_accessType
 
 int main()
 {
-    key_t key1, key2;
-    int msgId1, msgId2;
+    key_t key1, key2, key3, key4;
+    int msgId1, msgId2, msgId3, msgId4;
     int deviceID;
     FILE *fp = NULL;
     char messageBuffer[100] = "", infoBuffer[100] = "";
@@ -57,19 +57,22 @@ int main()
     int totalPower = 0;
 
     // ftok to generate unique key
-    key1 = ftok("keyfile", 3993); // for elePowerCtrl
-    key2 = ftok("keyfile", 9339); // for powerSupplyInfoAccess
-    printf("Success: Getting message queue keys %d %d\n", key1, key2);
+    key1 = ftok("keyfile", 1); // to elePowerCtrl
+    key2 = ftok("keyfile", 2); // to powerSupplyInfoAccess
+    key3 = ftok("keyfile", 3); // from elePowerCtrl
+    key4 = ftok("keyfile", 4); // from powerSupplyInfoAccess
+    printf("Success: Getting message queue keys %d %d %d %d\n", key1, key2, key3, key4);
 
     // msgget creates a message queue
     // and returns identifier
     msgId1 = msgget(key1, 0666 | IPC_CREAT);
     msgId2 = msgget(key2, 0666 | IPC_CREAT);
-    printf("Success: Getting message ID %d %d\n", msgId1, msgId2);
+    msgId3 = msgget(key3, 0666 | IPC_CREAT);
+    msgId4 = msgget(key4, 0666 | IPC_CREAT);
+    printf("Success: Getting message ID %d %d %d %d\n", msgId1, msgId2, msgId3, msgId4);
 
     while (1)
     {
-        printf("Waiting for Message...\n\n");
         // msgrcv to receive message
         message2.mesg_type = msgtype;
         memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
@@ -101,10 +104,10 @@ int main()
                     fgets(infoBuffer, 100, fp);
 
                     printf("%s\n", infoBuffer);
-                    memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
-                    strcpy(message2.mesg_text, infoBuffer);
-                    message2.mesg_type = msgtype;
-                    msgsnd(msgId2, &message2, sizeof(message2.mesg_text), 0);
+                    memset(message4.mesg_text, 0, sizeof(message4.mesg_text));
+                    strcpy(message4.mesg_text, infoBuffer);
+                    message4.mesg_type = msgtype;
+                    msgsnd(msgId4, &message4, sizeof(message4.mesg_text), 0);
                     fclose(fp);
                     fp = NULL;
                 }
@@ -122,10 +125,10 @@ int main()
                         printf("%s", infoBuffer);
                     }
 
-                    memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
-                    strcpy(message2.mesg_text, infoBuffer);
-                    message2.mesg_type = msgtype;
-                    msgsnd(msgId2, &message2, sizeof(message2.mesg_text), 0);
+                    memset(message4.mesg_text, 0, sizeof(message4.mesg_text));
+                    strcpy(message4.mesg_text, infoBuffer);
+                    message4.mesg_type = msgtype;
+                    msgsnd(msgId4, &message4, sizeof(message4.mesg_text), 0);
                     printf("Success: Sending Message to Power Control\n\n");
                     fclose(fp);
                     fp = NULL;
@@ -178,7 +181,7 @@ int main()
                         {
                             memset(infoBuffer, 0, sizeof(infoBuffer));
                             fgets(infoBuffer, 100, fin);
-
+                            if(strlen(infoBuffer) == 0) break;
                             char deviceName[100];
                             infoToken = strtok(infoBuffer, "|");
                             strcpy(deviceName, infoToken);
@@ -211,10 +214,10 @@ int main()
                         printf("Success: Reduce Device Voltage to SAVING mode\n\n");
 
                         // sending total power to Power Control
-                        memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
-                        message2.mesg_type = msgtype;
-                        sprintf(message2.mesg_text, "%d|", totalPower);
-                        msgsnd(msgId2, &message2, sizeof(message2.mesg_text), 0);
+                        memset(message4.mesg_text, 0, sizeof(message4.mesg_text));
+                        message4.mesg_type = msgtype;
+                        sprintf(message4.mesg_text, "%d|", totalPower);
+                        msgsnd(msgId4, &message4, sizeof(message4.mesg_text), 0);
                         printf("Success: Sending Total Saving Power to Power Control\n\n");
                     }
                     else
@@ -266,6 +269,7 @@ int main()
 
     // to destroy the message queue
     msgctl(msgId2, IPC_RMID, NULL);
+    msgctl(msgId4, IPC_RMID, NULL);
 
     return 0;
 }

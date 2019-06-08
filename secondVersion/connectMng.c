@@ -215,9 +215,9 @@ void powerSupply(command cmd)
     long msgtype = 1;
 
     // ftok to generate unique key
-    key1 = ftok("keyfile", 3993); // to elePowerCtrl
-    key2 = ftok("keyfile", 9339); // for powerSupplyInfoAccess
-    key3 = ftok("keyfile", 6996); // from elePowerCtrl
+    key1 = ftok("keyfile", 1); // to elePowerCtrl
+    key2 = ftok("keyfile", 2); // for powerSupplyInfoAccess
+    key3 = ftok("keyfile", 3); // from elePowerCtrl
     printf("Success: Getting message queue keys %d %d %d\n\n", key1, key2, key3);
 
     // msgget creates a message queue
