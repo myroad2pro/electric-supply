@@ -1,0 +1,5 @@
+Sat Jun  8 19:31:00 2019	|	AR	|	1000	|	NORMAL
+Sat Jun  8 19:31:17 2019	|	AR	|	500	|	SAVING
+Sat Jun  8 19:31:20 2019	|	AR	|	500	|	SAVING
+Sat Jun  8 19:31:30 2019	|	AR	|	500	|	SAVING
+Sat Jun  8 19:33:28 2019	|	AR	|	0	|	OFF
