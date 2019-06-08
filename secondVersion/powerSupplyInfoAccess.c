@@ -221,7 +221,7 @@ int main()
                             }
                             else
                             {
-                                fprintf(fout, "%d|%s|%d|%d|%s|\n", T_DEVICE, deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, "OFF");
+                                fprintf(fout, "%s|%d|%d|%s|\n", deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, "OFF");
                             }
                             lineNo++;
                             infoToken = NULL;
