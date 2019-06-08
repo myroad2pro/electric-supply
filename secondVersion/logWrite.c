@@ -100,8 +100,8 @@ int main()
                 strcpy(systemInfo.status, messageToken);
 
                 // open System Log
-                freopen("./systemLog", "a", fp);
-                fprintf(fp, "%s|%d|%s|", dateTime, systemInfo.currentSupply, systemInfo.status);
+                fp = fopen("systemLog", "a");
+                fprintf(fp, "%s\t|\t%d\t|\t%s\n", dateTime, systemInfo.currentSupply, systemInfo.status);
                 printf("Success: Writing to System Info\n");
                 fclose(fp);
                 fp = NULL;
@@ -121,7 +121,7 @@ int main()
                 // write to device log
                 sprintf(deviceLogFilename, "log%s.txt", deviceName);
                 fp = fopen(deviceLogFilename, "a");
-                fprintf(fp, "%s|%s|%d|%s|", dateTime, deviceName, deviceInfo.currentSupply, deviceInfo.status);
+                fprintf(fp, "%s\t|\t%s\t|\t%d\t|\t%s\n", dateTime, deviceName, deviceInfo.currentSupply, deviceInfo.status);
                 printf("Success: Writing to Device Info\n\n");
                 fclose(fp);
                 fp = NULL;
