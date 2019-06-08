@@ -16,7 +16,7 @@ struct mesg_buffer
 {
     long mesg_type;
     char mesg_text[100];
-} message1, message2, message3, message4;
+} message1, message2, message3, message4, message5;
 
 typedef struct
 {
@@ -44,8 +44,8 @@ enum t_accessType
 
 int main()
 {
-    key_t key1, key2, key3, key4;
-    int msgId1, msgId2, msgId3, msgId4;
+    key_t key1, key2, key3, key4, key5;
+    int msgId1, msgId2, msgId3, msgId4, msgId5;
     int deviceID;
     FILE *fp = NULL;
     char messageBuffer[100] = "", infoBuffer[100] = "";
@@ -61,7 +61,8 @@ int main()
     key2 = ftok("keyfile", 2); // to powerSupplyInfoAccess
     key3 = ftok("keyfile", 3); // from elePowerCtrl
     key4 = ftok("keyfile", 4); // from powerSupplyInfoAccess
-    printf("Success: Getting message queue keys %d %d %d %d\n", key1, key2, key3, key4);
+    key5 = ftok("keyfile", 5); // to writeLogProcess
+    printf("Success: Getting message queue keys %d %d %d %d %d\n", key1, key2, key3, key4, key5);
 
     // msgget creates a message queue
     // and returns identifier
@@ -69,6 +70,7 @@ int main()
     msgId2 = msgget(key2, 0666 | IPC_CREAT);
     msgId3 = msgget(key3, 0666 | IPC_CREAT);
     msgId4 = msgget(key4, 0666 | IPC_CREAT);
+    msgId5 = msgget(key5, 0666 | IPC_CREAT);
     printf("Success: Getting message ID %d %d %d %d\n", msgId1, msgId2, msgId3, msgId4);
 
     while (1)
@@ -134,7 +136,7 @@ int main()
                     fp = NULL;
                 }
             }
-            else if (accessType = T_WRITE)
+            else if (accessType == T_WRITE)
             {
                 if (infoType == T_SYSTEM)
                 {
@@ -159,8 +161,15 @@ int main()
                     printf("Success: Writing to System Info\n");
                     fclose(fp);
                     fp = NULL;
+
+                    // log
+                    memset(message5.mesg_text, 0, sizeof(message5.mesg_text));
+                    message5.mesg_type = msgtype;
+                    sprintf(message5.mesg_text, "%d|%d|%s|", T_SYSTEM, systemInfo.currentSupply, systemInfo.status);
+                    msgsnd(msgId5, &message5, sizeof(message5.mesg_text), 0);
+                    printf("Success: Sending Message to LogWrite...\n\n");
                 }
-                else if (infoType = T_DEVICE)
+                else if (infoType == T_DEVICE)
                 {
                     // read from message
                     messageToken = strtok(NULL, "|");
@@ -181,7 +190,8 @@ int main()
                         {
                             memset(infoBuffer, 0, sizeof(infoBuffer));
                             fgets(infoBuffer, 100, fin);
-                            if(strlen(infoBuffer) == 0) break;
+                            if (strlen(infoBuffer) == 0)
+                                break;
                             char deviceName[100];
                             infoToken = strtok(infoBuffer, "|");
                             strcpy(deviceName, infoToken);
@@ -194,13 +204,24 @@ int main()
                             strcpy(deviceInfo.status, infoToken);
                             if (lineNo == deviceID || (strcmp(deviceInfo.status, "OFF") != 0))
                             {
+                                memset(deviceInfo.status, 0, sizeof(deviceInfo.status));
+                                strcpy(deviceInfo.status, "SAVING");
+                                deviceInfo.currentSupply = deviceInfo.savingVoltage;
 
+                                // print to Device Info
                                 fprintf(fout, "%s|%d|%d|%s|\n", deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, "SAVING");
                                 totalPower += deviceInfo.savingVoltage;
+
+                                // log
+                                memset(message5.mesg_text, 0, sizeof(message5.mesg_text));
+                                message5.mesg_type = msgtype;
+                                sprintf(message5.mesg_text, "%d|%s|%d|%s|", T_DEVICE, deviceName, deviceInfo.currentSupply, deviceInfo.status);
+                                msgsnd(msgId5, &message5, sizeof(message5.mesg_text), 0);
+                                printf("Success: Sending Message to LogWrite...\n\n");
                             }
                             else
                             {
-                                fprintf(fout, "%s|%d|%d|%s|\n", deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, "OFF");
+                                fprintf(fout, "%d|%s|%d|%d|%s|\n", T_DEVICE, deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, "OFF");
                             }
                             lineNo++;
                             infoToken = NULL;
@@ -245,6 +266,13 @@ int main()
                                 infoToken = strtok(NULL, "|");
                                 deviceInfo.savingVoltage = atoi(infoToken);
                                 fprintf(fout, "%s|%d|%d|%s|\n", deviceName, deviceInfo.normalVoltage, deviceInfo.savingVoltage, deviceInfo.status);
+
+                                // log
+                                memset(message5.mesg_text, 0, sizeof(message5.mesg_text));
+                                message5.mesg_type = msgtype;
+                                sprintf(message5.mesg_text, "%d|%s|%d|%s|", T_DEVICE, deviceName, deviceInfo.currentSupply, deviceInfo.status);
+                                msgsnd(msgId5, &message5, sizeof(message5.mesg_text), 0);
+                                printf("Success: Sending Message to LogWrite...\n\n");
                             }
                             else
                             {
@@ -270,6 +298,7 @@ int main()
     // to destroy the message queue
     msgctl(msgId2, IPC_RMID, NULL);
     msgctl(msgId4, IPC_RMID, NULL);
+    msgctl(msgId5, IPC_RMID, NULL);
 
     return 0;
 }

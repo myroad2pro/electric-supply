@@ -16,7 +16,7 @@ struct mesg_buffer
 {
     long mesg_type;
     char mesg_text[100];
-} message1, message2, message3, message4;
+} message1, message2, message3, message4, message5;
 
 typedef struct
 {
@@ -222,7 +222,6 @@ int main()
                     sprintf(message3.mesg_text, "%s|%d|%s|", systemInfo.status, equipInfo.currentSupply, equipInfo.status);
                     msgsnd(msgId3, &message3, sizeof(message3.mesg_text), 0);
                     printf("Success: Sending Message to Power Supply...\n\n");
-                    // log
                 }
                 else // predictedSupply > systemInfo.maxThreshold
                 {
