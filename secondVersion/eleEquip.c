@@ -145,8 +145,6 @@ void showMenuAction(int deviceID)
 				if (choice < 1 || choice > 4)
 				{
 					choice = 0;
-					printf("Invalid choice: %d!\n", choice);
-					printf("Enter again: ");
 				}
 			}
 			else
