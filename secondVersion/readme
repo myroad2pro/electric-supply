@@ -1,4 +1,4 @@
-thứ tự chạy: powerSupplyInfoAccess => elePowerCtrl => connectMng => eleEquip
+thứ tự chạy: logWrite => powerSupplyInfoAccess => elePowerCtrl => connectMng => eleEquip
 
 1. eleEquip: 
 - nếu người dùng không lựa chọn gì, mỗi 10s gửi 1 message tới connectMng để xác nhận trạng thái hệ thống.
@@ -14,10 +14,21 @@ powerSupply |<------MessageQueue3---------| elePowerCtrl
 - Sở dĩ phải dùng 2 MessageQueue để tránh message từ các powerSupply trên một kênh bị dồn ứ khiến message phản hồi phải đợi. 
 
 3. elePowerCtrl:
-- nhận message từ powerSupply và xử lý.
+- nhận message từ powerSupply và xử lý, sau đó gửi yêu cầu cho powerSupplyInfoAccess để đọc và ghi Log và Info.
 
 - nếu vượt quá ngưỡng tối đa thì:
     + chuyển trạng thái của tất cả thiết bị về SAVING bằng cách gửi thông điệp T_WRITE|T_DEVICE|deviceID|-1
     + nhận tổng lượng điện tiêu thụ hiện tại của toàn hệ thống
     + nếu dưới ngưỡng tối đa thì ghi lại trạng thái và lượng điện hiện tại của hệ thống.
-    + nếu vẫn trên ngưỡng thì chuyển trạng thái của tất cả thiết bị về OFF bằng cách gửi thông điệp T_WRITE|T_DEVICE|-1|-1, sau đó restart hệ thống.
+    + nếu vẫn trên ngưỡng thì tắt hẳn thiết bị.
+
+elePowerCtrl |-------MessageQueue2---------->| powerSupplyInfoAccess
+elePowerCtrl |<------MessageQueue4-----------| powerSupplyInfoAccess
+
+4. powerSupplyInfoAccess:
+- nhận message từ elePowerCtrl và thực hiện đọc ghi Info và yêu cầu logWrite ghi Log.
+
+powerSupplyInfoAccess |-------- MessageQueue5---------->| logWrite
+
+5. logWrite
+- nhận message từ powerSupplyInfoAccess và ghi log.
