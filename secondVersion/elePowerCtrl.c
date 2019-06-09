@@ -71,7 +71,7 @@ int main()
     key2 = ftok("keyfile", 2); // to powerSupplyInfoAccess
     key3 = ftok("keyfile", 3); // from elePowerCtrl
     key4 = ftok("keyfile", 4); // from powerSupplyInfoAccess
-    printf("Success: Getting message queue keys %d %d %d %d\n", key1, key2, key3, key4);
+    //printf("Success: Getting message queue keys %d %d %d %d\n", key1, key2, key3, key4);
 
     // msgget creates a message queue
     // and returns identifier
@@ -79,7 +79,7 @@ int main()
     msgId2 = msgget(key2, 0666 | IPC_CREAT);
     msgId3 = msgget(key3, 0666 | IPC_CREAT);
     msgId4 = msgget(key4, 0666 | IPC_CREAT);
-    printf("Success: Getting message ID %d %d %d %d\n", msgId1, msgId2, msgId3, msgId4);
+    // printf("Success: Getting message ID %d %d %d %d\n", msgId1, msgId2, msgId3, msgId4);
 
     while (1)
     {
@@ -116,7 +116,7 @@ int main()
             memset(message4.mesg_text, 0, sizeof(message4.mesg_text));
             if (msgrcv(msgId4, &message4, sizeof(message4), 1, 0) != -1)
             {
-                printf("Success: Received System Info: %s from Power Supply Info Access...\n", message4.mesg_text);
+                printf("Success: Received System Info from Power Supply Info Access...\n");
                 memset(infoBuffer, 0, sizeof(infoBuffer));
                 strcpy(infoBuffer, message4.mesg_text);
                 // extract info
@@ -143,7 +143,7 @@ int main()
             memset(message4.mesg_text, 0, sizeof(message4.mesg_text));
             if (msgrcv(msgId4, &message4, sizeof(message4), 1, 0) != -1)
             {
-                printf("Success: Received Device Info %s from Power Supply Info Access...\n", message4.mesg_text);
+                printf("Success: Received Device Info from Power Supply Info Access...\n");
                 memset(infoBuffer, 0, sizeof(infoBuffer));
                 strcpy(infoBuffer, message4.mesg_text);
                 // extract info

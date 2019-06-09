@@ -62,7 +62,7 @@ int main()
     key3 = ftok("keyfile", 3); // from elePowerCtrl
     key4 = ftok("keyfile", 4); // from powerSupplyInfoAccess
     key5 = ftok("keyfile", 5); // to writeLogProcess
-    printf("Success: Getting message queue keys %d %d %d %d %d\n", key1, key2, key3, key4, key5);
+    // printf("Success: Getting message queue keys %d %d %d %d %d\n", key1, key2, key3, key4, key5);
 
     // msgget creates a message queue
     // and returns identifier
@@ -71,7 +71,7 @@ int main()
     msgId3 = msgget(key3, 0666 | IPC_CREAT);
     msgId4 = msgget(key4, 0666 | IPC_CREAT);
     msgId5 = msgget(key5, 0666 | IPC_CREAT);
-    printf("Success: Getting message ID %d %d %d %d\n", msgId1, msgId2, msgId3, msgId4);
+    // printf("Success: Getting message ID %d %d %d %d\n", msgId1, msgId2, msgId3, msgId4);
 
     while (1)
     {
@@ -80,7 +80,7 @@ int main()
         memset(message2.mesg_text, 0, sizeof(message2.mesg_text));
         if (msgrcv(msgId2, &message2, sizeof(message2), 1, 0) != -1)
         {
-            printf("Success: Received Message %s from Power Control\n", message2.mesg_text);
+            printf("Success: Received Message from Power Control\n");
             int accessType, infoType;
 
             strcpy(messageBuffer, message2.mesg_text);
@@ -88,7 +88,7 @@ int main()
             accessType = atoi(messageToken);
             messageToken = strtok(NULL, "|");
             infoType = atoi(messageToken);
-            printf("Access Type: %d - info type: %d\n", accessType, infoType);
+            // printf("Access Type: %d - info type: %d\n", accessType, infoType);
 
             if (accessType == T_READ)
             {
@@ -174,7 +174,7 @@ int main()
                     // read from message
                     messageToken = strtok(NULL, "|");
                     deviceID = atoi(messageToken);
-                    printf("%s", infoBuffer);
+                    // printf("%s", infoBuffer);
 
                     messageToken = strtok(NULL, "|");
                     deviceInfo.currentSupply = atoi(messageToken);

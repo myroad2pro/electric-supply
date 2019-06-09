@@ -154,12 +154,6 @@ void showMenuAction(int deviceID)
 				mode = runDevice(deviceID - 1, mode);
 				choice = 0;
 			}
-			// if (scanf("%d", &choice) < 1)
-			// {
-			// 	choice = 0;
-			// }
-
-			// while ((c = getchar()) != '\n');
 		}
 
 		switch (choice)
@@ -289,30 +283,6 @@ int runDevice(int deviceID, int mode)
 	}
 	else
 		return OFF;
-	// while (1)
-	// {
-	// 	if (*shm <= threshold)
-	// 	{
-	// 		printf("The current device is running at %d W\n Press enter to stop this device\n", voltage);
-	// 	}
-	// 	else if (*shm <= maxThreshold)
-	// 	{
-	// 		printf("The threshold is exceeded. The supply currently is %d\n", *shm);
-	// 	}
-	// 	else
-	// 	{
-	// 		printf("Maximum threshold is exceeded. A device will be turn off in %d\n", countDown);
-	// 		countDown--;
-	//
-	// 	}
-
-	// 	if (kbhit())
-	// 	{
-	// 		stopDevice(deviceName);
-	// 		break;
-	// 	}
-	//
-	// }
 }
 
 void stopDevice(char *deviceName)

@@ -68,26 +68,6 @@ t_systemInfo systemInfo;
 
 void powerSupply(command cmd);
 
-// lấy địa chỉ bộ nhớ dùng chung của log
-void getInfo(char *key_from_server)
-{
-    int shmid;
-    key_t key;
-    key = atoi(key_from_server);
-
-    if ((shmid = shmget(key, 1000, 0666)) < 0)
-    {
-        perror("shmget");
-        exit(1);
-    }
-
-    if ((shm2 = shmat(shmid, NULL, 0)) == (char *)-1)
-    {
-        perror("shmat");
-        exit(1);
-    }
-}
-
 void sig_chld(int singno)
 {
     pid_t pid;
@@ -125,26 +105,6 @@ int main()
     int *shm;
     key = atoi(KEY);
     int currentVoltage = 0;
-
-    // // tạo bộ nhớ dùng chung
-    // if ((shmid = shmget(key, 8, IPC_CREAT | 0666)) < 0)
-    // {
-    //     perror("shmget");
-    //     exit(1);
-    // }
-
-    // // lấy địa chỉ bộ nhớ dùng chung
-    // if ((shm = shmat(shmid, NULL, 0)) == (int *)-1)
-    // {
-    //     perror("shmat");
-    //     exit(1);
-    // }
-
-    // *shm = 0;
-    // int *currentDevice = shm + 1;
-    // *currentDevice = 2;
-    // getInfo("1111"); // sử dụng log của hệ thống
-
     // connectMng
     // khởi tạo kết nối IP
     printf("Creating IP connection...\n\n");
@@ -189,11 +149,6 @@ int main()
                 // phần dưới này chuyển sang powerSupply()
                 powerSupply(cmd);
             }
-            // if (currentVoltage != 0)
-            // {
-            //     *shm = *shm - currentVoltage;
-            //     currentVoltage = 0;
-            // }
 
             close(connectSock);
             exit(0);
@@ -218,14 +173,14 @@ void powerSupply(command cmd)
     key1 = ftok("keyfile", 1); // to elePowerCtrl
     key2 = ftok("keyfile", 2); // for powerSupplyInfoAccess
     key3 = ftok("keyfile", 3); // from elePowerCtrl
-    printf("Success: Getting message queue keys %d %d %d\n\n", key1, key2, key3);
+    // printf("Success: Getting message queue keys %d %d %d\n\n", key1, key2, key3);
 
     // msgget creates a message queue
     // and returns identifier
     msgId1 = msgget(key1, 0666 | IPC_CREAT);
     msgId2 = msgget(key2, 0666 | IPC_CREAT);
     msgId3 = msgget(key3, 0666 | IPC_CREAT);
-    printf("Success: Getting message ID %d %d %d\n\n", msgId1, msgId2, msgId3);
+    // printf("Success: Getting message ID %d %d %d\n\n", msgId1, msgId2, msgId3);
 
     printf("Sending message to Power Control...\n\n");
     if (strcmp(cmd.code, "STOP") == 0)

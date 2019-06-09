@@ -66,12 +66,12 @@ int main()
 
     // ftok to generate unique key
     key5 = ftok("keyfile", 5); // to writeLogProcess
-    printf("Success: Getting message queue keys %d\n", key5);
+    // printf("Success: Getting message queue keys %d\n", key5);
 
     // msgget creates a message queue
     // and returns identifier
     msgId5 = msgget(key5, 0666 | IPC_CREAT);
-    printf("Success: Getting message ID %d\n", msgId5);
+    // printf("Success: Getting message ID %d\n", msgId5);
 
     while (1)
     {
@@ -80,7 +80,7 @@ int main()
         memset(message5.mesg_text, 0, sizeof(message5.mesg_text));
         if (msgrcv(msgId5, &message5, sizeof(message5), 1, 0) != -1)
         {
-            printf("Success: Received Message %s from Power Supply Info Access\n", message5.mesg_text);
+            printf("Success: Received Message from Power Supply Info Access\n");
             time(&rawtime);
             timeinfo = localtime(&rawtime);
             dateTime = asctime(timeinfo);
@@ -89,7 +89,7 @@ int main()
             strcpy(messageBuffer, message5.mesg_text);
             messageToken = strtok(messageBuffer, "|");
             infoType = atoi(messageToken);
-            printf("Info type: %d\n", infoType);
+            // printf("Info type: %d\n", infoType);
 
             if (infoType == T_SYSTEM)
             {
