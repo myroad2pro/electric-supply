@@ -223,7 +223,7 @@ int runDevice(int deviceID, int mode)
 		break;
 	}
 
-	printf("Sending command mode %d to server...\n\n", mode);
+	// printf("Sending command mode %d to server...\n\n", mode);
 	if (mode == OFF)
 	{
 		stopDevice(deviceName);
